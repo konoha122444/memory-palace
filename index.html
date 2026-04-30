@@ -1285,11 +1285,23 @@ const ROOMS = ['關於我們','情感節點','親密','未來計劃','日常'];
 const ROOM_MAP = {'关于我们':'關於我們','情感节点':'情感節點','亲密':'親密','未来计划':'未來計劃','日常':'日常'};
 const WEIGHT_ICON = { core:'★', important:'◆', normal:'', faded:'░' };
 
+
+// ── 繁簡轉換對照表（常用字）────────────────────────────────
+const TRAD_TO_SIMP = {"憶":"忆","記":"记","關":"关","於":"于","節":"节","親":"亲","計":"计","劃":"划","歷":"历","設":"设","備":"备","刪":"删","篩":"筛","選":"选","標":"标","籤":"签","搜":"搜","尋":"寻","顯":"显","視":"视","查":"查","閱":"阅","匯":"汇","入":"入","曆":"历","體":"体","點":"点","來":"来","後":"后","對":"对","話":"话","紀":"纪","錄":"录","時":"时","間":"间","個":"个","會":"会","裡":"里","種":"种","開":"开","發":"发","傳":"传","訊":"讯","導":"导","覽":"览","層":"层","變":"变","換":"换","強":"强","調":"调","類":"类","數":"数","據":"据","詞":"词","語":"语","認":"认","識":"识","帶":"带","讓":"让","總":"总","結":"结","處":"处","調":"调","鍵":"键","詳":"详","細":"细","頁":"页","無":"无","當":"当","們":"们","華":"华","內":"内","響":"响","應":"应","義":"义","實":"实","現":"现","問":"问","題":"题","動":"动","態":"态","風":"风","格","格","舊":"旧","幾":"几","樣":"样","說":"说","圖":"图","員":"员","頭":"头","場":"场","維":"维","確":"确","過":"过","雲":"云","資":"资","訊":"讯","輸":"输","出":"出","觸":"触","發":"发","權":"权","限":"限","刪":"删","除":"除","儲":"储","存":"存","讀":"读","取":"取","寫":"写","新":"新","增":"增","修":"修","改":"改","舊":"旧","版":"版","本":"本","管":"管","理":"理","系":"系","統":"统","設":"设","定":"定","主":"主","題":"题","配":"配","色":"色","字":"字","體":"体","大":"大","小":"小","日":"日","期":"期","事":"事","項":"项","備":"备","注":"注","留":"留","言":"言","板":"板","記":"记","憶":"忆","宮":"宫","殿":"殿","情":"情","感":"感","密":"密","未":"未","來":"来","計":"计","劃":"划","日":"日","常":"常","關":"关","於":"于","我":"我","們":"们"};
+
+const SIMP_TO_TRAD = Object.fromEntries(Object.entries(TRAD_TO_SIMP).map(([t,s]) => [s,t]));
+
+function normalizeZh(str) {
+  if (!str) return '';
+  // Convert to simplified for comparison (so both inputs match simplified tags)
+  return str.split('').map(c => TRAD_TO_SIMP[c] || c).join('').toLowerCase();
+}
+
 let activeFilterTag = null;
 let activeSearchQuery = '';
 
 function onSearchInput(val) {
-  activeSearchQuery = val.trim().toLowerCase();
+  activeSearchQuery = normalizeZh(val.trim());
   document.getElementById('search-clear').classList.toggle('visible', !!activeSearchQuery);
   renderMemories();
 }
@@ -1303,10 +1315,20 @@ function clearSearch() {
 }
 
 function highlightText(text, query) {
-  if (!query) return escHtml(text);
-  const escaped = escHtml(text);
-  const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-  return escaped.replace(re, '<mark>$1</mark>');
+  if (!query || !text) return escHtml(text);
+  // Build a regex that matches both trad and simp variants of each query char
+  const chars = query.split('').map(c => {
+    const trad = Object.keys(TRAD_TO_SIMP).find(k => TRAD_TO_SIMP[k] === c) || c;
+    const simp = TRAD_TO_SIMP[c] || c;
+    if (trad === simp) return escHtml(c);
+    return `[${escHtml(trad)}${escHtml(simp)}]`;
+  }).join('');
+  try {
+    const re = new RegExp('(' + chars + ')', 'gi');
+    return escHtml(text).replace(re, '<mark>$1</mark>');
+  } catch {
+    return escHtml(text);
+  }
 }
 
 function renderMemories() {
@@ -1355,8 +1377,8 @@ function renderMemories() {
       const tagMatch = !activeFilterTag || (m.tags||[]).includes(activeFilterTag);
       const q = activeSearchQuery;
       const searchMatch = !q ||
-        (m.tags||[]).some(t => t.toLowerCase().includes(q)) ||
-        (m.summary||'').toLowerCase().includes(q);
+        (m.tags||[]).some(t => normalizeZh(t).includes(q)) ||
+        normalizeZh(m.summary||'').includes(q);
       const isHidden = !tagMatch || !searchMatch;
       const tags = (m.tags||[]).map(t =>
         `<span class="tag" style="cursor:pointer" onclick="event.stopPropagation();toggleTagFilter('${t}')">${highlightText(t, activeSearchQuery)}</span>`
