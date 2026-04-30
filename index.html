@@ -9,6 +9,14 @@
 <script src="https://accounts.google.com/gsi/client"></script>
 <style>
 :root {
+  --shadow:    rgba(0,0,0,0.5);
+  --radius:    12px;
+  --font-size: 15px;
+}
+[data-size="small"]  { --font-size: 13px; }
+[data-size="large"]  { --font-size: 17px; }
+/* ── THEMES ─────────────────────────────────────────── */
+[data-theme="dusk"] {
   --bg:         #141210;
   --surface:    #1E1A17;
   --surface-2:  #282320;
@@ -20,16 +28,104 @@
   --accent-glow:rgba(196,132,90,0.12);
   --gold:       #D4A96A;
   --rose:       #C47E7E;
-  --sage:       #7E9E8A;
   --text:       #EAE0D5;
   --text-soft:  #A89888;
   --text-muted: #6A5E58;
-  --shadow:     rgba(0,0,0,0.5);
-  --radius:     12px;
-  --font-size:  15px;
 }
-[data-size="small"]  { --font-size: 13px; }
-[data-size="large"]  { --font-size: 17px; }
+[data-theme="mist"] {
+  --bg:         #F5F0EA;
+  --surface:    #EDE7DF;
+  --surface-2:  #E4DDD4;
+  --surface-3:  #D9D0C5;
+  --border:     #CEC4B8;
+  --border-soft:#D8D0C8;
+  --accent:     #8B6F5E;
+  --accent-dim: #A88070;
+  --accent-glow:rgba(139,111,94,0.10);
+  --gold:       #9A7A4A;
+  --rose:       #A06060;
+  --text:       #2C2420;
+  --text-soft:  #5C4E48;
+  --text-muted: #9A8E88;
+}
+[data-theme="ink"] {
+  --bg:         #0E0E12;
+  --surface:    #16161C;
+  --surface-2:  #1E1E26;
+  --surface-3:  #26263A;
+  --border:     #2E2E44;
+  --border-soft:#222230;
+  --accent:     #8A7EC8;
+  --accent-dim: #6A5EA8;
+  --accent-glow:rgba(138,126,200,0.12);
+  --gold:       #C4A86A;
+  --rose:       #C47EA0;
+  --text:       #E0DCF0;
+  --text-soft:  #9E9AB8;
+  --text-muted: #5E5A78;
+}
+[data-theme="cedar"] {
+  --bg:         #100C0A;
+  --surface:    #1A1410;
+  --surface-2:  #221C18;
+  --surface-3:  #2C2420;
+  --border:     #362E28;
+  --border-soft:#2A2218;
+  --accent:     #A87848;
+  --accent-dim: #7A5830;
+  --accent-glow:rgba(168,120,72,0.12);
+  --gold:       #C89A50;
+  --rose:       #B87060;
+  --text:       #F0E4D4;
+  --text-soft:  #B09880;
+  --text-muted: #6A5848;
+}
+[data-theme="stone"] {
+  --bg:         #111314;
+  --surface:    #1A1C1E;
+  --surface-2:  #222628;
+  --surface-3:  #2C3034;
+  --border:     #363C40;
+  --border-soft:#282E32;
+  --accent:     #7AADCC;
+  --accent-dim: #5A8DAC;
+  --accent-glow:rgba(122,173,204,0.12);
+  --gold:       #A0C4A0;
+  --rose:       #C4A07A;
+  --text:       #D8E4EA;
+  --text-soft:  #8EA8B8;
+  --text-muted: #5A6E78;
+}
+
+/* ── THEME PICKER ───────────────────────────────────── */
+.theme-grid {
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+.theme-dot {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.theme-dot:hover { transform: scale(1.1); }
+.theme-dot.active { border-color: var(--text); }
+.theme-dot::after {
+  content: attr(data-name);
+  position: absolute;
+  bottom: -22px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  letter-spacing: 0.06em;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.theme-dot:hover::after { opacity: 1; }
+
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -795,6 +891,21 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
             <button class="seg-btn" onclick="setFontSize('large')">大</button>
           </div>
         </div>
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:16px">
+          <div><div class="settings-row-label">主題配色</div></div>
+          <div class="theme-grid">
+            <div class="theme-dot active" data-theme="dusk" data-name="黃昏" onclick="setTheme('dusk')"
+              style="background:linear-gradient(135deg,#141210 50%,#C4845A 50%)"></div>
+            <div class="theme-dot" data-theme="mist" data-name="晨霧" onclick="setTheme('mist')"
+              style="background:linear-gradient(135deg,#F5F0EA 50%,#8B6F5E 50%)"></div>
+            <div class="theme-dot" data-theme="ink" data-name="墨夜" onclick="setTheme('ink')"
+              style="background:linear-gradient(135deg,#0E0E12 50%,#8A7EC8 50%)"></div>
+            <div class="theme-dot" data-theme="cedar" data-name="松木" onclick="setTheme('cedar')"
+              style="background:linear-gradient(135deg,#100C0A 50%,#A87848 50%)"></div>
+            <div class="theme-dot" data-theme="stone" data-name="石青" onclick="setTheme('stone')"
+              style="background:linear-gradient(135deg,#111314 50%,#7AADCC 50%)"></div>
+          </div>
+        </div>
       </div>
       <div class="settings-section">
         <div class="settings-label">資料</div>
@@ -924,7 +1035,17 @@ let currentNoteAuthor = '凝凝';
 let calState = { year: new Date().getFullYear(), month: new Date().getMonth(), selectedDate: null };
 
 // ── OAUTH ───────────────────────────────────────────────
-window.onload = function() { initGSI(); };
+window.onload = function() {
+  initGSI();
+  const saved = localStorage.getItem('mp-theme') || 'dusk';
+  document.body.setAttribute('data-theme', saved);
+  // mark active dot after DOM ready
+  setTimeout(() => {
+    document.querySelectorAll('.theme-dot').forEach(d => {
+      d.classList.toggle('active', d.getAttribute('data-theme') === saved);
+    });
+  }, 100);
+};
 
 function initGSI() {
   if (!window.google?.accounts?.oauth2) { setTimeout(initGSI, 200); return; }
@@ -1360,6 +1481,15 @@ async function saveCalNote() {
 }
 
 // ── SETTINGS ─────────────────────────────────────────────
+const THEMES = ['dusk','mist','ink','cedar','stone'];
+function setTheme(theme) {
+  document.body.setAttribute('data-theme', theme);
+  document.querySelectorAll('.theme-dot').forEach(d => {
+    d.classList.toggle('active', d.getAttribute('data-theme') === theme);
+  });
+  localStorage.setItem('mp-theme', theme);
+}
+
 function setFontSize(size) {
   document.body.setAttribute('data-size', size === 'medium' ? '' : size);
   document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
