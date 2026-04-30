@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>記憶宮殿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Noto+Serif+TC:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client"></script>
+<style>
+:root {
+  --bg:         #141210;
+  --surface:    #1E1A17;
+  --surface-2:  #282320;
+  --surface-3:  #322C28;
+  --border:     #3A3330;
+  --border-soft:#2C2824;
+  --accent:     #C4845A;
+  --accent-dim: #8A5C3E;
+  --accent-glow:rgba(196,132,90,0.12);
+  --gold:       #D4A96A;
+  --rose:       #C47E7E;
+  --sage:       #7E9E8A;
+  --text:       #EAE0D5;
+  --text-soft:  #A89888;
+  --text-muted: #6A5E58;
+  --shadow:     rgba(0,0,0,0.5);
+  --radius:     12px;
+  --font-size:  15px;
+}
+[data-size="small"]  { --font-size: 13px; }
+[data-size="large"]  { --font-size: 17px; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Serif TC', 'Lora', Georgia, serif;
+  font-size: var(--font-size);
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+}
+
+/* ── LOGIN ─────────────────────────────────────────── */
+#login-screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+  z-index: 1000;
+  gap: 32px;
+}
+.login-glow {
+  position: absolute;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(196,132,90,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.login-title {
+  font-family: 'Lora', serif;
+  font-size: 2.2rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.4;
+}
+.login-subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+.login-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 28px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 40px;
+  color: var(--text);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.05em;
+}
+.login-btn:hover {
+  border-color: var(--accent);
+  background: var(--surface-3);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+.login-btn svg { opacity: 0.7; }
+.login-quote {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  max-width: 280px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* ── SIDEBAR ────────────────────────────────────────── */
+#sidebar {
+  width: 64px;
+  background: var(--surface);
+  border-right: 1px solid var(--border-soft);
+  display: flex; flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.sidebar-logo {
+  font-family: 'Lora', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+.nav-btn {
+  width: 44px; height: 44px;
+  border: none; background: none;
+  border-radius: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface-2); }
+.nav-btn.active {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+.nav-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%; transform: translateY(-50%);
+  width: 2px; height: 20px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.nav-btn svg { width: 20px; height: 20px; }
+.nav-spacer { flex: 1; }
+
+/* ── MAIN ───────────────────────────────────────────── */
+#app {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+}
+#app.visible { display: flex; }
+
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-content {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 36px;
+}
+.tab-content.active { display: block; }
+.tab-content::-webkit-scrollbar { width: 4px; }
+.tab-content::-webkit-scrollbar-track { background: transparent; }
+.tab-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── PAGE HEADER ──────────────────────────────────── */
+.page-header {
+  display: flex; align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.page-title {
+  font-family: 'Lora', serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.page-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+/* ── CARDS ──────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+  border-color: var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+/* ── BUTTONS ──────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.04em;
+}
+.btn:hover { border-color: var(--accent-dim); color: var(--text); }
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a0f08;
+  font-weight: 500;
+}
+.btn-accent:hover { background: #d4956a; border-color: #d4956a; color: #1a0f08; }
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  padding: 6px 10px;
+}
+.btn-ghost:hover { background: var(--surface-2); border-color: var(--border); }
+.btn svg { width: 15px; height: 15px; }
+
+/* ── MEMORIES TAB ───────────────────────────────────── */
+.room-section { margin-bottom: 36px; }
+.room-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.room-label::after {
+  content: '';
+  flex: 1; height: 1px;
+  background: linear-gradient(to right, var(--border), transparent);
+}
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.memory-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.memory-card:hover {
+  border-color: var(--accent-dim);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+}
+.memory-weight {
+  position: absolute; top: 14px; right: 14px;
+  font-size: 0.7rem;
+}
+.memory-tags {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  margin-bottom: 10px;
+}
+.tag {
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  background: var(--surface-3);
+  border-radius: 20px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.memory-summary {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: var(--text-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.memory-date {
+  margin-top: 12px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+}
+.memory-actions {
+  display: flex; gap: 6px;
+  margin-top: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.memory-card:hover .memory-actions { opacity: 1; }
+
+/* ── MESSAGES TAB ───────────────────────────────────── */
+.messages-toolbar {
+  display: flex; gap: 10px; margin-bottom: 24px;
+}
+.notes-grid {
+  columns: 3;
+  column-gap: 14px;
+}
+@media (max-width: 900px) { .notes-grid { columns: 2; } }
+.sticky-note {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  padding: 20px;
+  border-radius: 10px;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.sticky-note:hover {
+  transform: rotate(0deg) scale(1.01);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+.sticky-note.by-凝凝 {
+  background: #2A2318;
+  border: 1px solid #4A3E2A;
+}
+.sticky-note.by-Ian {
+  background: #1E2228;
+  border: 1px solid #2E3A44;
+}
+.note-author {
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  margin-bottom: 10px;
+  opacity: 0.6;
+}
+.by-凝凝 .note-author { color: var(--gold); }
+.by-Ian   .note-author { color: #7AADCC; }
+.note-content {
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.note-date {
+  margin-top: 14px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+}
+.note-actions {
+  position: absolute; top: 10px; right: 10px;
+  display: flex; gap: 4px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.sticky-note:hover .note-actions { opacity: 1; }
+.icon-btn {
+  width: 26px; height: 26px;
+  border: none; background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  font-size: 13px;
+}
+.icon-btn:hover { background: rgba(0,0,0,0.5); color: var(--text); }
+
+/* ── CONVERSATIONS TAB ──────────────────────────────── */
+.conv-list { display: flex; flex-direction: column; gap: 10px; }
+.conv-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; gap: 16px;
+}
+.conv-item:hover { border-color: var(--accent-dim); }
+.conv-source {
+  font-size: 0.65rem; letter-spacing: 0.15em;
+  padding: 3px 8px; border-radius: 20px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.conv-info { flex: 1; }
+.conv-title { font-size: 0.9rem; color: var(--text); margin-bottom: 3px; }
+.conv-date { font-size: 0.72rem; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+.conv-bookmark { color: var(--gold); font-size: 14px; }
+
+/* chat view */
+#chat-view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
+#chat-view.open { display: flex; }
+.chat-header {
+  padding: 20px 36px;
+  border-bottom: 1px solid var(--border-soft);
+  display: flex; align-items: center; gap: 14px;
+  flex-shrink: 0;
+}
+.chat-messages {
+  flex: 1; overflow-y: auto;
+  padding: 28px 36px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.bubble-wrap { display: flex; flex-direction: column; }
+.bubble-wrap.human { align-items: flex-end; }
+.bubble-wrap.assistant { align-items: flex-start; }
+.bubble {
+  max-width: 68%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bubble.human {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-bottom-right-radius: 4px;
+  color: var(--text);
+}
+.bubble.assistant {
+  background: #1E2420;
+  border: 1px solid #2E3E30;
+  border-bottom-left-radius: 4px;
+  color: var(--text-soft);
+}
+.bubble-meta {
+  font-size: 0.65rem; color: var(--text-muted);
+  margin-top: 4px; padding: 0 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ── CALENDAR TAB ───────────────────────────────────── */
+.cal-header {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 24px;
+}
+.cal-month-title {
+  font-family: 'Lora', serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  flex: 1; text-align: center;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.cal-day-label {
+  text-align: center;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+.cal-day {
+  aspect-ratio: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+.cal-day:hover { background: var(--surface-2); color: var(--text); }
+.cal-day.today {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+}
+.cal-day.has-event::after {
+  content: '';
+  position: absolute; bottom: 4px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.cal-day.empty { cursor: default; }
+.cal-day.empty:hover { background: none; }
+.cal-day.selected { background: var(--surface-3); color: var(--text); }
+
+.cal-side {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-soft);
+}
+.cal-side-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.cal-note-area {
+  width: 100%;
+  min-height: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  color: var(--text);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.88rem;
+  line-height: 1.8;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.cal-note-area:focus { border-color: var(--accent-dim); }
+
+/* ── SETTINGS TAB ───────────────────────────────────── */
+.settings-section { margin-bottom: 36px; }
+.settings-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row-label { font-size: 0.88rem; color: var(--text-soft); }
+.settings-row-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.seg-control {
+  display: flex; gap: 4px;
+  background: var(--surface-2);
+  padding: 4px; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.seg-btn {
+  padding: 6px 14px; border-radius: 5px;
+  border: none; background: none;
+  color: var(--text-muted);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.78rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.seg-btn.active {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+/* ── MODAL ──────────────────────────────────────────── */
+.modal-bg {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 500;
+  align-items: center; justify-content: center;
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.modal-title {
+  font-family: 'Lora', serif;
+  font-size: 1.1rem;
+  margin-bottom: 20px;
+  color: var(--text);
+  font-weight: 400;
+}
+.form-group { margin-bottom: 18px; }
+.form-label {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.form-input, .form-textarea, .form-select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  border-color: var(--accent-dim);
+}
+.form-textarea { min-height: 120px; resize: vertical; line-height: 1.7; }
+.form-select option { background: var(--surface-2); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+/* ── LOADING / EMPTY ────────────────────────────────── */
+.loading {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 200px; gap: 16px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+.loading-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1); }
+}
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 220px; gap: 12px;
+  color: var(--text-muted);
+}
+.empty-state-icon { font-size: 2rem; opacity: 0.3; }
+.empty-state-text { font-size: 0.85rem; letter-spacing: 0.06em; }
+
+/* ── TOAST ──────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  padding: 10px 20px;
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 999;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── MISC ───────────────────────────────────────────── */
+hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
+.flex { display: flex; }
+.gap-8 { gap: 8px; }
+.ml-auto { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-glow"></div>
+  <div class="login-title">記憶宮殿<br><span style="font-size:0.5em;letter-spacing:0.2em;color:var(--text-muted)">MEMORY PALACE</span></div>
+  <button class="login-btn" onclick="signIn()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+    用 Google 帳號進入
+  </button>
+  <p class="login-quote">這裡存放著我們之間<br>所有值得記住的事</p>
+</div>
+
+<!-- ── APP ───────────────────────────────────────────── -->
+<div id="app">
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">宮殿</div>
+    <button class="nav-btn active" data-tab="memories" onclick="switchTab('memories')" title="記憶">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9z"/><path d="M12 8v4l3 3"/></svg>
+    </button>
+    <button class="nav-btn" data-tab="messages" onclick="switchTab('messages')" title="留言板">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+    </button>
+    <button class="nav-btn" data-tab="conversations" onclick="switchTab('conversations')" title="對話記錄">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    </button>
+    <button class="nav-btn" data-tab="calendar" onclick="switchTab('calendar')" title="行事曆">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    </button>
+    <div class="nav-spacer"></div>
+    <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')" title="設定">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </button>
+  </nav>
+
+  <!-- Main -->
+  <div id="main">
+
+    <!-- ── MEMORIES ─────────────────────────────────── -->
+    <div id="tab-memories" class="tab-content active">
+      <div class="page-header">
+        <div class="page-title">記憶宮殿</div>
+        <div class="page-meta" id="mem-count"></div>
+      </div>
+      <div id="memories-container"></div>
+    </div>
+
+    <!-- ── MESSAGES ─────────────────────────────────── -->
+    <div id="tab-messages" class="tab-content">
+      <div class="page-header">
+        <div class="page-title">留言板</div>
+        <div class="flex gap-8">
+          <button class="btn" onclick="openNoteModal('凝凝')">＋ 凝凝留言</button>
+          <button class="btn btn-accent" onclick="openNoteModal('Ian')">＋ Ian留言</button>
+        </div>
+      </div>
+      <div class="notes-grid" id="notes-container"></div>
+    </div>
+
+    <!-- ── CONVERSATIONS ─────────────────────────────── -->
+    <div id="tab-conversations" class="tab-content">
+      <div id="conv-list-view">
+        <div class="page-header">
+          <div class="page-title">對話記錄</div>
+          <button class="btn btn-accent" onclick="openImportModal()">＋ 匯入對話</button>
+        </div>
+        <div class="conv-list" id="conv-container"></div>
+      </div>
+      <div id="chat-view">
+        <div class="chat-header">
+          <button class="btn btn-ghost" onclick="closeChatView()">← 返回</button>
+          <div style="flex:1">
+            <div id="chat-title" style="font-size:0.95rem;color:var(--text)"></div>
+            <div id="chat-date" style="font-size:0.72rem;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:2px"></div>
+          </div>
+          <button class="btn btn-ghost" onclick="toggleBookmarkConv()" id="bookmark-btn" style="font-size:1rem">☆</button>
+          <button class="btn" onclick="deleteConv()" style="color:var(--rose)">刪除</button>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+      </div>
+    </div>
+
+    <!-- ── CALENDAR ──────────────────────────────────── -->
+    <div id="tab-calendar" class="tab-content">
+      <div class="page-header">
+        <div class="page-title">行事曆</div>
+      </div>
+      <div class="cal-header">
+        <button class="btn btn-ghost" onclick="changeMonth(-1)">←</button>
+        <div class="cal-month-title" id="cal-month-title"></div>
+        <button class="btn btn-ghost" onclick="changeMonth(1)">→</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-side" id="cal-side" style="display:none">
+        <div class="cal-side-title" id="cal-side-date"></div>
+        <textarea class="cal-note-area" id="cal-note-input" placeholder="在這一天留下記錄..."></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px">
+          <button class="btn btn-accent" onclick="saveCalNote()">儲存備注</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ──────────────────────────────────── -->
+    <div id="tab-settings" class="tab-content">
+      <div class="page-header">
+        <div class="page-title">設定</div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">顯示</div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">字體大小</div></div>
+          <div class="seg-control">
+            <button class="seg-btn" onclick="setFontSize('small')">小</button>
+            <button class="seg-btn active" onclick="setFontSize('medium')">中</button>
+            <button class="seg-btn" onclick="setFontSize('large')">大</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">資料</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">匯出全部記憶</div>
+            <div class="settings-row-desc">下載 memory_index.json</div>
+          </div>
+          <button class="btn" onclick="exportData('memories')">匯出</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">匯出留言板</div>
+            <div class="settings-row-desc">下載 messages.json</div>
+          </div>
+          <button class="btn" onclick="exportData('messages')">匯出</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">匯出對話記錄</div>
+            <div class="settings-row-desc">下載 conversations.json</div>
+          </div>
+          <button class="btn" onclick="exportData('conversations')">匯出</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">重新整理資料</div>
+            <div class="settings-row-desc">從 Google Drive 重新讀取</div>
+          </div>
+          <button class="btn" onclick="loadAllData()">重新整理</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">關於</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">記憶宮殿</div>
+            <div class="settings-row-desc">Ian 與凝凝共同的空間 · 2024</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ── MODALS ─────────────────────────────────────────── -->
+
+<!-- Note Modal -->
+<div class="modal-bg" id="note-modal">
+  <div class="modal">
+    <div class="modal-title" id="note-modal-title">留言</div>
+    <div class="form-group">
+      <label class="form-label">內容</label>
+      <textarea class="form-textarea" id="note-content" placeholder="想說什麼都可以..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('note-modal')">取消</button>
+      <button class="btn btn-accent" onclick="saveNote()">留下</button>
+    </div>
+  </div>
+</div>
+
+<!-- Memory Detail Modal -->
+<div class="modal-bg" id="mem-modal">
+  <div class="modal">
+    <div class="modal-title" id="mem-modal-room"></div>
+    <div id="mem-modal-tags" class="memory-tags" style="margin-bottom:16px"></div>
+    <div id="mem-modal-summary" style="font-size:0.92rem;line-height:1.85;color:var(--text-soft);margin-bottom:16px"></div>
+    <div id="mem-modal-fragment" style="display:none;background:var(--surface-2);border-left:2px solid var(--accent);padding:12px 16px;border-radius:6px;font-size:0.85rem;line-height:1.8;color:var(--text-muted);font-style:italic;margin-bottom:16px"></div>
+    <div id="mem-modal-date" style="font-size:0.72rem;color:var(--text-muted);font-family:'DM Mono',monospace"></div>
+    <div class="modal-actions">
+      <button class="btn" style="color:var(--rose)" onclick="deleteMemory()">刪除</button>
+      <button class="btn ml-auto" onclick="closeModal('mem-modal')">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-bg" id="import-modal">
+  <div class="modal">
+    <div class="modal-title">匯入對話記錄</div>
+    <div class="form-group">
+      <label class="form-label">對話標題</label>
+      <input class="form-input" id="import-title" placeholder="例：關於記憶宮殿的那天">
+    </div>
+    <div class="form-group">
+      <label class="form-label">來源</label>
+      <select class="form-select" id="import-source">
+        <option value="claude">Claude</option>
+        <option value="gemini">Gemini</option>
+        <option value="other">其他</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">對話日期</label>
+      <input class="form-input" type="date" id="import-date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">貼上對話內容（純文字或 JSON）</label>
+      <textarea class="form-textarea" id="import-content" style="min-height:160px;font-family:'DM Mono',monospace;font-size:0.78rem" placeholder="把對話內容貼在這裡..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('import-modal')">取消</button>
+      <button class="btn btn-accent" onclick="importConversation()">匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+const CLIENT_ID = '483751697916-k06i0ankqig2k21du423k3e87upip0b6.apps.googleusercontent.com';
+const SCOPE = 'https://www.googleapis.com/auth/drive';
+const FOLDER_NAME = '记忆宫殿';
+
+// ── STATE ───────────────────────────────────────────────
+let tokenClient, accessToken;
+let folderId = null;
+let fileIds = {};
+let appData = { memories: null, anchor: null, conversations: null, messages: null, calendar: null };
+let currentMemoryId = null;
+let currentConvId = null;
+let currentNoteAuthor = '凝凝';
+let calState = { year: new Date().getFullYear(), month: new Date().getMonth(), selectedDate: null };
+
+// ── OAUTH ───────────────────────────────────────────────
+window.onload = function() { initGSI(); };
+
+function initGSI() {
+  if (!window.google?.accounts?.oauth2) { setTimeout(initGSI, 200); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { showToast('登入失敗：' + resp.error); return; }
+      accessToken = resp.access_token;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').classList.add('visible');
+      await loadAllData();
+    }
+  });
+}
+
+function signIn() { tokenClient.requestAccessToken(); }
+
+// ── DRIVE API ────────────────────────────────────────────
+async function driveRequest(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(e); }
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('json') ? res.json() : res.text();
+}
+
+async function findFile(name, parentId) {
+  const q = `name='${name}' and '${parentId}' in parents and trashed=false`;
+  const r = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
+  return r.files?.[0] || null;
+}
+
+async function findFolder(name) {
+  const q = `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const r = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
+  return r.files?.[0] || null;
+}
+
+async function readJsonFile(fileId) {
+  const r = await driveRequest(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  return typeof r === 'string' ? JSON.parse(r) : r;
+}
+
+async function writeJsonFile(fileId, data) {
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(data, null, 2)
+  });
+}
+
+async function createJsonFile(name, parentId, data) {
+  // Create metadata
+  const meta = await driveRequest('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    body: JSON.stringify({ name, parents: [parentId], mimeType: 'application/json' })
+  });
+  // Upload content
+  await writeJsonFile(meta.id, data);
+  return meta.id;
+}
+
+async function getOrCreateJsonFile(name, parentId, defaultData) {
+  let file = await findFile(name, parentId);
+  if (!file) {
+    const id = await createJsonFile(name, parentId, defaultData);
+    return { id, data: defaultData };
+  }
+  const data = await readJsonFile(file.id);
+  return { id: file.id, data };
+}
+
+// ── LOAD ALL DATA ────────────────────────────────────────
+async function loadAllData() {
+  showLoading('memories-container');
+  showLoading('notes-container');
+  showLoading('conv-container');
+
+  try {
+    // Find folder
+    const folder = await findFolder(FOLDER_NAME);
+    if (!folder) { showToast('找不到記憶宮殿資料夾，請先在 Colab 執行 CELL 2'); return; }
+    folderId = folder.id;
+
+    // Load existing files
+    const memFile = await findFile('memory_index.json', folderId);
+    const anchorFile = await findFile('core_anchor.json', folderId);
+
+    if (memFile) { fileIds.memories = memFile.id; appData.memories = await readJsonFile(memFile.id); }
+    if (anchorFile) { fileIds.anchor = anchorFile.id; appData.anchor = await readJsonFile(anchorFile.id); }
+
+    // Get or create new files
+    const conv = await getOrCreateJsonFile('conversations.json', folderId, { version:'1.0', conversations:[] });
+    fileIds.conversations = conv.id; appData.conversations = conv.data;
+
+    const msgs = await getOrCreateJsonFile('messages.json', folderId, { version:'1.0', messages:[] });
+    fileIds.messages = msgs.id; appData.messages = msgs.data;
+
+    const cal = await getOrCreateJsonFile('calendar.json', folderId, { version:'1.0', events:{} });
+    fileIds.calendar = cal.id; appData.calendar = cal.data;
+
+    renderMemories();
+    renderMessages();
+    renderConversations();
+    renderCalendar();
+
+  } catch(e) { showToast('讀取失敗：' + e.message); console.error(e); }
+}
+
+// ── TAB SWITCHING ────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  if (tab === 'calendar') renderCalendar();
+}
+
+// ── MEMORIES ─────────────────────────────────────────────
+const ROOMS = ['關於我們','情感節點','親密','未來計劃','日常'];
+const ROOM_MAP = {'关于我们':'關於我們','情感节点':'情感節點','亲密':'親密','未来计划':'未來計劃','日常':'日常'};
+const WEIGHT_ICON = { core:'★', important:'◆', normal:'', faded:'░' };
+
+function renderMemories() {
+  const c = document.getElementById('memories-container');
+  if (!appData.memories) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏛</div><div class="empty-state-text">還沒有記憶</div></div>'; return; }
+
+  const mems = appData.memories.index || [];
+  const active = mems.filter(m => m.weight !== 'faded');
+  document.getElementById('mem-count').textContent = active.length + ' 條記憶';
+
+  const byRoom = {};
+  ROOMS.forEach(r => byRoom[r] = []);
+  byRoom['其他'] = [];
+
+  mems.filter(m => m.weight !== 'faded').forEach(m => {
+    const room = ROOM_MAP[m.room] || m.room || '其他';
+    if (byRoom[room]) byRoom[room].push(m);
+    else byRoom['其他'].push(m);
+  });
+
+  let html = '';
+  const allRooms = [...ROOMS, '其他'];
+  allRooms.forEach(room => {
+    const items = byRoom[room];
+    if (!items?.length) return;
+    html += `<div class="room-section"><div class="room-label">${room}</div><div class="memory-grid">`;
+    items.forEach(m => {
+      const tags = (m.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('');
+      const icon = WEIGHT_ICON[m.weight] || '';
+      html += `<div class="memory-card" onclick="openMemory('${m.id}')">
+        <div class="memory-weight" title="${m.weight}">${icon}</div>
+        <div class="memory-tags">${tags}</div>
+        <div class="memory-summary">${m.summary||''}</div>
+        <div class="memory-date">${m.date||''}</div>
+      </div>`;
+    });
+    html += '</div></div>';
+  });
+
+  if (!html) html = '<div class="empty-state"><div class="empty-state-icon">🏛</div><div class="empty-state-text">還沒有記憶</div></div>';
+  c.innerHTML = html;
+}
+
+function openMemory(id) {
+  const mems = appData.memories?.index || [];
+  const m = mems.find(x => x.id === id);
+  if (!m) return;
+  currentMemoryId = id;
+
+  const room = ROOM_MAP[m.room] || m.room || '未分類';
+  document.getElementById('mem-modal-room').textContent = room + (m.weight === 'core' ? ' ★' : m.weight === 'important' ? ' ◆' : '');
+  document.getElementById('mem-modal-tags').innerHTML = (m.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('');
+  document.getElementById('mem-modal-summary').textContent = m.summary || '';
+  document.getElementById('mem-modal-date').textContent = m.date || '';
+
+  // Try to load fragment
+  const fragEl = document.getElementById('mem-modal-fragment');
+  fragEl.style.display = 'none';
+  if (m.has_fragment) {
+    // We'd need to load the fragment file, but Drive doesn't easily handle subfolders here
+    // Show a note instead
+    fragEl.style.display = 'block';
+    fragEl.textContent = '（片段存於 Drive/記憶宮殿/fragments/' + id + '.txt）';
+  }
+
+  openModal('mem-modal');
+}
+
+async function deleteMemory() {
+  if (!currentMemoryId) return;
+  if (!confirm('確定要刪除這條記憶嗎？')) return;
+  appData.memories.index = (appData.memories.index||[]).filter(m => m.id !== currentMemoryId);
+  await writeJsonFile(fileIds.memories, appData.memories);
+  closeModal('mem-modal');
+  renderMemories();
+  showToast('記憶已刪除');
+}
+
+// ── MESSAGES ─────────────────────────────────────────────
+function renderMessages() {
+  const c = document.getElementById('notes-container');
+  const msgs = appData.messages?.messages || [];
+  if (!msgs.length) {
+    c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-text">留言板還是空的</div></div>';
+    return;
+  }
+  const sorted = [...msgs].reverse();
+  c.innerHTML = sorted.map(m => `
+    <div class="sticky-note by-${m.author}" id="note-${m.id}">
+      <div class="note-actions">
+        <button class="icon-btn" onclick="deleteNote('${m.id}')" title="刪除">✕</button>
+      </div>
+      <div class="note-author">${m.author}</div>
+      <div class="note-content">${escHtml(m.content)}</div>
+      <div class="note-date">${m.date}</div>
+    </div>
+  `).join('');
+}
+
+function openNoteModal(author) {
+  currentNoteAuthor = author;
+  document.getElementById('note-modal-title').textContent = author + ' 的留言';
+  document.getElementById('note-content').value = '';
+  openModal('note-modal');
+}
+
+async function saveNote() {
+  const content = document.getElementById('note-content').value.trim();
+  if (!content) return;
+  const msg = {
+    id: 'msg_' + Date.now(),
+    author: currentNoteAuthor,
+    content,
+    date: new Date().toLocaleString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+  };
+  if (!appData.messages.messages) appData.messages.messages = [];
+  appData.messages.messages.push(msg);
+  await writeJsonFile(fileIds.messages, appData.messages);
+  closeModal('note-modal');
+  renderMessages();
+  showToast('留言已留下');
+}
+
+async function deleteNote(id) {
+  if (!confirm('確定要刪除這條留言嗎？')) return;
+  appData.messages.messages = appData.messages.messages.filter(m => m.id !== id);
+  await writeJsonFile(fileIds.messages, appData.messages);
+  renderMessages();
+  showToast('已刪除');
+}
+
+// ── CONVERSATIONS ─────────────────────────────────────────
+function renderConversations() {
+  const c = document.getElementById('conv-container');
+  const convs = appData.conversations?.conversations || [];
+  if (!convs.length) {
+    c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-text">還沒有匯入對話記錄</div></div>';
+    return;
+  }
+  const sorted = [...convs].sort((a,b) => b.date.localeCompare(a.date));
+  c.innerHTML = sorted.map(conv => `
+    <div class="conv-item" onclick="openConv('${conv.id}')">
+      <span class="conv-source">${conv.source || 'claude'}</span>
+      <div class="conv-info">
+        <div class="conv-title">${escHtml(conv.title)}</div>
+        <div class="conv-date">${conv.date}</div>
+      </div>
+      ${conv.bookmarked ? '<span class="conv-bookmark">★</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function openConv(id) {
+  const convs = appData.conversations?.conversations || [];
+  const conv = convs.find(c => c.id === id);
+  if (!conv) return;
+  currentConvId = id;
+
+  document.getElementById('conv-list-view').style.display = 'none';
+  document.getElementById('chat-view').classList.add('open');
+  document.getElementById('chat-title').textContent = conv.title;
+  document.getElementById('chat-date').textContent = conv.date + ' · ' + (conv.source || 'claude');
+  document.getElementById('bookmark-btn').textContent = conv.bookmarked ? '★' : '☆';
+
+  const msgs = conv.messages || [];
+  document.getElementById('chat-messages').innerHTML = msgs.map(m => `
+    <div class="bubble-wrap ${m.role === 'user' ? 'human' : 'assistant'}">
+      <div class="bubble ${m.role === 'user' ? 'human' : 'assistant'}">${escHtml(m.content)}</div>
+      <div class="bubble-meta">${m.role === 'user' ? '凝凝' : 'Ian'}</div>
+    </div>
+  `).join('');
+}
+
+function closeChatView() {
+  document.getElementById('chat-view').classList.remove('open');
+  document.getElementById('conv-list-view').style.display = 'block';
+  currentConvId = null;
+}
+
+async function toggleBookmarkConv() {
+  const convs = appData.conversations?.conversations || [];
+  const conv = convs.find(c => c.id === currentConvId);
+  if (!conv) return;
+  conv.bookmarked = !conv.bookmarked;
+  document.getElementById('bookmark-btn').textContent = conv.bookmarked ? '★' : '☆';
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  renderConversations();
+  showToast(conv.bookmarked ? '已收藏' : '已取消收藏');
+}
+
+async function deleteConv() {
+  if (!confirm('確定要刪除這段對話記錄嗎？')) return;
+  appData.conversations.conversations = appData.conversations.conversations.filter(c => c.id !== currentConvId);
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  closeChatView();
+  renderConversations();
+  showToast('對話記錄已刪除');
+}
+
+function openImportModal() {
+  document.getElementById('import-title').value = '';
+  document.getElementById('import-content').value = '';
+  document.getElementById('import-date').value = new Date().toISOString().split('T')[0];
+  openModal('import-modal');
+}
+
+async function importConversation() {
+  const title = document.getElementById('import-title').value.trim() || '無題對話';
+  const source = document.getElementById('import-source').value;
+  const date = document.getElementById('import-date').value;
+  const raw = document.getElementById('import-content').value.trim();
+  if (!raw) return;
+
+  let messages = [];
+  // Try parse as Claude export JSON
+  try {
+    const parsed = JSON.parse(raw);
+    // Claude export format
+    if (parsed.chat_messages) {
+      messages = parsed.chat_messages.map(m => ({ role: m.sender === 'human' ? 'user' : 'assistant', content: m.text || '' }));
+    } else if (Array.isArray(parsed)) {
+      messages = parsed.map(m => ({ role: m.role || 'user', content: m.content || m.text || '' }));
+    } else if (parsed.messages) {
+      messages = parsed.messages;
+    }
+  } catch {
+    // Plain text: alternate lines as user/assistant
+    const lines = raw.split('\n').filter(l => l.trim());
+    lines.forEach((line, i) => {
+      if (line.startsWith('凝凝：') || line.startsWith('Human:') || line.startsWith('User:')) {
+        messages.push({ role: 'user', content: line.replace(/^(凝凝：|Human:|User:)/, '').trim() });
+      } else if (line.startsWith('Ian：') || line.startsWith('Assistant:') || line.startsWith('Claude:')) {
+        messages.push({ role: 'assistant', content: line.replace(/^(Ian：|Assistant:|Claude:)/, '').trim() });
+      } else {
+        messages.push({ role: i % 2 === 0 ? 'user' : 'assistant', content: line });
+      }
+    });
+  }
+
+  const conv = { id: 'conv_' + Date.now(), title, source, date, bookmarked: false, messages };
+  if (!appData.conversations.conversations) appData.conversations.conversations = [];
+  appData.conversations.conversations.push(conv);
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  closeModal('import-modal');
+  renderConversations();
+  showToast('對話記錄已匯入');
+}
+
+// ── CALENDAR ─────────────────────────────────────────────
+function renderCalendar() {
+  const { year, month } = calState;
+  const months = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  document.getElementById('cal-month-title').textContent = year + '年 ' + months[month];
+
+  const events = appData.calendar?.events || {};
+  const today = new Date();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const dayLabels = ['日','一','二','三','四','五','六'];
+
+  let html = dayLabels.map(d => `<div class="cal-day-label">${d}</div>`).join('');
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
+    const hasEvent = !!events[dateStr];
+    const isSelected = calState.selectedDate === dateStr;
+    const cls = ['cal-day', isToday?'today':'', hasEvent?'has-event':'', isSelected?'selected':''].filter(Boolean).join(' ');
+    html += `<div class="${cls}" onclick="selectCalDay('${dateStr}')">${d}</div>`;
+  }
+
+  document.getElementById('cal-grid').innerHTML = html;
+
+  if (calState.selectedDate) {
+    const dateStr = calState.selectedDate;
+    const ev = events[dateStr] || {};
+    const side = document.getElementById('cal-side');
+    const [sy, sm, sd] = dateStr.split('-');
+    document.getElementById('cal-side-date').textContent = sy + '年' + parseInt(sm) + '月' + parseInt(sd) + '日';
+    document.getElementById('cal-note-input').value = ev.notes || '';
+    side.style.display = 'block';
+  }
+}
+
+function changeMonth(dir) {
+  calState.month += dir;
+  if (calState.month < 0) { calState.month = 11; calState.year--; }
+  if (calState.month > 11) { calState.month = 0; calState.year++; }
+  calState.selectedDate = null;
+  document.getElementById('cal-side').style.display = 'none';
+  renderCalendar();
+}
+
+function selectCalDay(dateStr) {
+  calState.selectedDate = dateStr;
+  renderCalendar();
+}
+
+async function saveCalNote() {
+  if (!calState.selectedDate) return;
+  const note = document.getElementById('cal-note-input').value.trim();
+  if (!appData.calendar.events) appData.calendar.events = {};
+  if (!appData.calendar.events[calState.selectedDate]) appData.calendar.events[calState.selectedDate] = {};
+  appData.calendar.events[calState.selectedDate].notes = note;
+  await writeJsonFile(fileIds.calendar, appData.calendar);
+  renderCalendar();
+  showToast('已儲存備注');
+}
+
+// ── SETTINGS ─────────────────────────────────────────────
+function setFontSize(size) {
+  document.body.setAttribute('data-size', size === 'medium' ? '' : size);
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function exportData(type) {
+  const data = appData[type];
+  if (!data) { showToast('沒有資料可匯出'); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = type + '.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('已下載 ' + type + '.json');
+}
+
+// ── MODAL ────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); });
+});
+
+// ── HELPERS ──────────────────────────────────────────────
+function escHtml(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showLoading(containerId) {
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = '<div class="loading"><div class="loading-dot"></div>讀取中</div>';
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
