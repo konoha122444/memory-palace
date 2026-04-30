@@ -767,6 +767,66 @@ body {
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 
+
+/* ── SEARCH ─────────────────────────────────────────── */
+.search-wrap {
+  position: relative;
+  margin-bottom: 20px;
+}
+.search-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  padding: 10px 20px 10px 42px;
+  color: var(--text);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  letter-spacing: 0.04em;
+}
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.search-icon {
+  position: absolute;
+  left: 15px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  width: 16px; height: 16px;
+}
+.search-clear {
+  position: absolute;
+  right: 14px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: none;
+  transition: color 0.2s;
+}
+.search-clear:hover { color: var(--text); }
+.search-clear.visible { display: block; }
+.memory-card mark {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.search-result-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+  min-height: 18px;
+}
+
 /* ── TAG FILTER ─────────────────────────────────────── */
 .filter-bar {
   display: flex; flex-wrap: wrap; gap: 8px;
@@ -860,6 +920,14 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
         <div class="page-title">記憶宮殿</div>
         <div class="page-meta" id="mem-count"></div>
       </div>
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input class="search-input" id="search-input" placeholder="搜尋標籤、摘要、關鍵字…" oninput="onSearchInput(this.value)">
+        <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+      </div>
+      <div class="search-result-count" id="search-result-count"></div>
       <div class="filter-bar" id="filter-bar">
         <button class="filter-clear" id="filter-clear" onclick="clearTagFilter()">✕ 清除篩選</button>
       </div>
@@ -1218,6 +1286,28 @@ const ROOM_MAP = {'关于我们':'關於我們','情感节点':'情感節點','�
 const WEIGHT_ICON = { core:'★', important:'◆', normal:'', faded:'░' };
 
 let activeFilterTag = null;
+let activeSearchQuery = '';
+
+function onSearchInput(val) {
+  activeSearchQuery = val.trim().toLowerCase();
+  document.getElementById('search-clear').classList.toggle('visible', !!activeSearchQuery);
+  renderMemories();
+}
+
+function clearSearch() {
+  activeSearchQuery = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').classList.remove('visible');
+  document.getElementById('search-result-count').textContent = '';
+  renderMemories();
+}
+
+function highlightText(text, query) {
+  if (!query) return escHtml(text);
+  const escaped = escHtml(text);
+  const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return escaped.replace(re, '<mark>$1</mark>');
+}
 
 function renderMemories() {
   const c = document.getElementById('memories-container');
@@ -1262,15 +1352,20 @@ function renderMemories() {
     if (!items?.length) return;
     html += `<div class="room-section" id="room-${room}"><div class="room-label">${room}</div><div class="memory-grid">`;
     items.forEach(m => {
-      const isHidden = activeFilterTag && !(m.tags||[]).includes(activeFilterTag);
+      const tagMatch = !activeFilterTag || (m.tags||[]).includes(activeFilterTag);
+      const q = activeSearchQuery;
+      const searchMatch = !q ||
+        (m.tags||[]).some(t => t.toLowerCase().includes(q)) ||
+        (m.summary||'').toLowerCase().includes(q);
+      const isHidden = !tagMatch || !searchMatch;
       const tags = (m.tags||[]).map(t =>
-        `<span class="tag" style="cursor:pointer" onclick="event.stopPropagation();toggleTagFilter('${t}')">${t}</span>`
+        `<span class="tag" style="cursor:pointer" onclick="event.stopPropagation();toggleTagFilter('${t}')">${highlightText(t, activeSearchQuery)}</span>`
       ).join('');
       const icon = WEIGHT_ICON[m.weight] || '';
       html += `<div class="memory-card${isHidden?' hidden':''}" id="mc-${m.id}" onclick="openMemory('${m.id}')">
         <div class="memory-weight" title="${m.weight}">${icon}</div>
         <div class="memory-tags">${tags}</div>
-        <div class="memory-summary">${m.summary||''}</div>
+        <div class="memory-summary">${highlightText(m.summary||'', activeSearchQuery)}</div>
         <div class="memory-date">${m.date||''}</div>
       </div>`;
     });
@@ -1281,7 +1376,15 @@ function renderMemories() {
   c.innerHTML = html;
 
   // Hide empty room sections after filter
-  if (activeFilterTag) updateRoomVisibility();
+  updateRoomVisibility();
+  // Show result count when searching
+  const countEl = document.getElementById('search-result-count');
+  if (activeSearchQuery) {
+    const visible = document.querySelectorAll('.memory-card:not(.hidden)').length;
+    countEl.textContent = `找到 ${visible} 條符合「${activeSearchQuery}」的記憶`;
+  } else {
+    countEl.textContent = '';
+  }
 }
 
 function toggleTagFilter(tag) {
@@ -1292,6 +1395,12 @@ function toggleTagFilter(tag) {
 function clearTagFilter() {
   activeFilterTag = null;
   renderMemories();
+}
+
+// Clear both search and tag filter together
+function clearAll() {
+  activeFilterTag = null;
+  clearSearch();
 }
 
 function updateRoomVisibility() {
