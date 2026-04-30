@@ -9,9 +9,24 @@
 <script src="https://accounts.google.com/gsi/client"></script>
 <style>
 :root {
-  --shadow:    rgba(0,0,0,0.5);
-  --radius:    12px;
-  --font-size: 15px;
+  --shadow:     rgba(0,0,0,0.5);
+  --radius:     12px;
+  --font-size:  15px;
+  /* fallback defaults (dusk theme) */
+  --bg:         #141210;
+  --surface:    #1E1A17;
+  --surface-2:  #282320;
+  --surface-3:  #322C28;
+  --border:     #3A3330;
+  --border-soft:#2C2824;
+  --accent:     #C4845A;
+  --accent-dim: #8A5C3E;
+  --accent-glow:rgba(196,132,90,0.12);
+  --gold:       #D4A96A;
+  --rose:       #C47E7E;
+  --text:       #EAE0D5;
+  --text-soft:  #A89888;
+  --text-muted: #6A5E58;
 }
 [data-size="small"]  { --font-size: 13px; }
 [data-size="large"]  { --font-size: 17px; }
@@ -875,7 +890,7 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
 .ml-auto { margin-left: auto; }
 </style>
 </head>
-<body>
+<body data-theme="dusk">
 
 <!-- ── LOGIN ─────────────────────────────────────────── -->
 <div id="login-screen">
