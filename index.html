@@ -766,6 +766,48 @@ body {
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+
+/* ── TAG FILTER ─────────────────────────────────────── */
+.filter-bar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 24px;
+  min-height: 32px;
+}
+.filter-tag {
+  font-size: 0.72rem;
+  padding: 5px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+.filter-tag:hover { border-color: var(--accent-dim); color: var(--text); }
+.filter-tag.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.filter-clear {
+  font-size: 0.72rem;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.04em;
+  display: none;
+}
+.filter-clear.visible { display: inline-block; }
+.filter-clear:hover { border-color: var(--rose); color: var(--rose); }
+.memory-card.hidden { display: none; }
+.room-section.empty { display: none; }
+
 /* ── MISC ───────────────────────────────────────────── */
 hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
 .flex { display: flex; }
@@ -817,6 +859,9 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
       <div class="page-header">
         <div class="page-title">記憶宮殿</div>
         <div class="page-meta" id="mem-count"></div>
+      </div>
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-clear" id="filter-clear" onclick="clearTagFilter()">✕ 清除篩選</button>
       </div>
       <div id="memories-container"></div>
     </div>
@@ -1172,6 +1217,8 @@ const ROOMS = ['關於我們','情感節點','親密','未來計劃','日常'];
 const ROOM_MAP = {'关于我们':'關於我們','情感节点':'情感節點','亲密':'親密','未来计划':'未來計劃','日常':'日常'};
 const WEIGHT_ICON = { core:'★', important:'◆', normal:'', faded:'░' };
 
+let activeFilterTag = null;
+
 function renderMemories() {
   const c = document.getElementById('memories-container');
   if (!appData.memories) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏛</div><div class="empty-state-text">還沒有記憶</div></div>'; return; }
@@ -1180,11 +1227,29 @@ function renderMemories() {
   const active = mems.filter(m => m.weight !== 'faded');
   document.getElementById('mem-count').textContent = active.length + ' 條記憶';
 
+  // Build all unique tags for filter bar
+  const allTags = {};
+  active.forEach(m => (m.tags||[]).forEach(t => { allTags[t] = (allTags[t]||0)+1; }));
+  const sortedTags = Object.entries(allTags).sort((a,b) => b[1]-a[1]).map(e => e[0]);
+  const bar = document.getElementById('filter-bar');
+  const clearBtn = document.getElementById('filter-clear');
+  // Rebuild tag buttons (keep clear btn)
+  bar.innerHTML = '';
+  bar.appendChild(clearBtn);
+  sortedTags.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-tag' + (activeFilterTag === t ? ' active' : '');
+    btn.textContent = t;
+    btn.onclick = () => toggleTagFilter(t);
+    bar.appendChild(btn);
+  });
+  clearBtn.classList.toggle('visible', !!activeFilterTag);
+
   const byRoom = {};
   ROOMS.forEach(r => byRoom[r] = []);
   byRoom['其他'] = [];
 
-  mems.filter(m => m.weight !== 'faded').forEach(m => {
+  active.forEach(m => {
     const room = ROOM_MAP[m.room] || m.room || '其他';
     if (byRoom[room]) byRoom[room].push(m);
     else byRoom['其他'].push(m);
@@ -1195,11 +1260,14 @@ function renderMemories() {
   allRooms.forEach(room => {
     const items = byRoom[room];
     if (!items?.length) return;
-    html += `<div class="room-section"><div class="room-label">${room}</div><div class="memory-grid">`;
+    html += `<div class="room-section" id="room-${room}"><div class="room-label">${room}</div><div class="memory-grid">`;
     items.forEach(m => {
-      const tags = (m.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('');
+      const isHidden = activeFilterTag && !(m.tags||[]).includes(activeFilterTag);
+      const tags = (m.tags||[]).map(t =>
+        `<span class="tag" style="cursor:pointer" onclick="event.stopPropagation();toggleTagFilter('${t}')">${t}</span>`
+      ).join('');
       const icon = WEIGHT_ICON[m.weight] || '';
-      html += `<div class="memory-card" onclick="openMemory('${m.id}')">
+      html += `<div class="memory-card${isHidden?' hidden':''}" id="mc-${m.id}" onclick="openMemory('${m.id}')">
         <div class="memory-weight" title="${m.weight}">${icon}</div>
         <div class="memory-tags">${tags}</div>
         <div class="memory-summary">${m.summary||''}</div>
@@ -1211,6 +1279,26 @@ function renderMemories() {
 
   if (!html) html = '<div class="empty-state"><div class="empty-state-icon">🏛</div><div class="empty-state-text">還沒有記憶</div></div>';
   c.innerHTML = html;
+
+  // Hide empty room sections after filter
+  if (activeFilterTag) updateRoomVisibility();
+}
+
+function toggleTagFilter(tag) {
+  activeFilterTag = activeFilterTag === tag ? null : tag;
+  renderMemories();
+}
+
+function clearTagFilter() {
+  activeFilterTag = null;
+  renderMemories();
+}
+
+function updateRoomVisibility() {
+  document.querySelectorAll('.room-section').forEach(section => {
+    const visible = section.querySelectorAll('.memory-card:not(.hidden)').length > 0;
+    section.classList.toggle('empty', !visible);
+  });
 }
 
 function openMemory(id) {
