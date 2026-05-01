@@ -318,6 +318,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 32px 36px;
+  position: relative;
 }
 .tab-content.active { display: block; }
 .tab-content::-webkit-scrollbar { width: 4px; }
@@ -580,7 +581,10 @@ body {
 #chat-view {
   display: none;
   flex-direction: column;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  z-index: 10;
 }
 #chat-view.open { display: flex; }
 .chat-header {
@@ -1649,6 +1653,7 @@ async function loadAllData() {
     renderCalendar();
     loadApiSettings();
     loadBubbleColor();
+    loadUsage();
 
   } catch(e) { showToast('讀取失敗：' + e.message); console.error(e); }
 }
@@ -2113,6 +2118,10 @@ async function sendChatMessage() {
     showToast('請先在設定裡填入 API Key');
     return;
   }
+  if (isBudgetExceeded()) {
+    showToast('已達預算上限，請在設定中重置或調整');
+    return;
+  }
 
   // Show typing indicator
   document.getElementById('chat-typing').classList.add('visible');
@@ -2134,6 +2143,7 @@ async function sendChatMessage() {
       );
       const data = await res.json();
       replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '（無回應）';
+      trackUsage(text.length + replyText.length);
     } else {
       replyText = '目前僅支援 Gemini API 的即時對話';
     }
@@ -2612,6 +2622,112 @@ function toggleModelRole(modelId, role) {
   Object.keys(modelRoles).forEach(k => { toSave[k] = [...modelRoles[k]]; });
   localStorage.setItem('mp-model-roles', JSON.stringify(toSave));
   renderModelPicker(document.getElementById('api-provider').value);
+}
+
+// ── API TEST + USAGE ─────────────────────────────────────
+async function testApiConnection() {
+  const provider = document.getElementById('api-provider').value;
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  const resultEl = document.getElementById('api-test-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text-muted)';
+  resultEl.textContent = '測試中…';
+
+  if (!apiKey) {
+    resultEl.style.color = 'var(--rose)';
+    resultEl.textContent = '✕ 請先填入 API Key';
+    return;
+  }
+
+  try {
+    if (provider === 'gemini') {
+      const model = 'gemini-1.5-flash';
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ contents:[{ role:'user', parts:[{text:'hi'}] }] })
+        }
+      );
+      if (res.ok) {
+        resultEl.style.color = 'var(--sage, #7E9E8A)';
+        resultEl.textContent = '✓ 連接成功！Gemini API 正常運作';
+      } else {
+        const err = await res.json();
+        resultEl.style.color = 'var(--rose)';
+        resultEl.textContent = '✕ 錯誤：' + (err.error?.message || res.status);
+      }
+    } else {
+      resultEl.style.color = 'var(--text-muted)';
+      resultEl.textContent = '目前僅支援 Gemini 的連接測試';
+    }
+  } catch(e) {
+    resultEl.style.color = 'var(--rose)';
+    resultEl.textContent = '✕ 連接失敗：' + e.message;
+  }
+}
+
+function loadUsage() {
+  const count = parseInt(localStorage.getItem('mp-usage-count') || '0');
+  const tokens = parseInt(localStorage.getItem('mp-usage-tokens') || '0');
+  const budget = parseInt(localStorage.getItem('mp-budget') || '0');
+  const budgetOn = localStorage.getItem('mp-budget-on') === 'true';
+
+  document.getElementById('usage-count').textContent = count + ' 次';
+  document.getElementById('usage-tokens').textContent = tokens.toLocaleString();
+  if (budget > 0) {
+    document.getElementById('usage-budget-label').textContent = '預算上限：' + budget + ' 次';
+    const pct = Math.min((count / budget) * 100, 100);
+    document.getElementById('usage-bar').style.width = pct + '%';
+    document.getElementById('usage-bar').style.background = pct > 85 ? 'var(--rose)' : 'var(--accent)';
+    document.getElementById('budget-input').value = budget;
+  }
+  if (budgetOn) {
+    document.getElementById('budget-toggle').style.background = 'var(--accent)';
+    document.getElementById('budget-toggle-knob').style.left = '18px';
+    document.getElementById('budget-toggle-knob').style.background = '#fff';
+  }
+}
+
+function trackUsage(estimatedTokens) {
+  const count = parseInt(localStorage.getItem('mp-usage-count') || '0') + 1;
+  const tokens = parseInt(localStorage.getItem('mp-usage-tokens') || '0') + (estimatedTokens || 500);
+  localStorage.setItem('mp-usage-count', count);
+  localStorage.setItem('mp-usage-tokens', tokens);
+  loadUsage();
+}
+
+function isBudgetExceeded() {
+  const budgetOn = localStorage.getItem('mp-budget-on') === 'true';
+  if (!budgetOn) return false;
+  const budget = parseInt(localStorage.getItem('mp-budget') || '0');
+  const count = parseInt(localStorage.getItem('mp-usage-count') || '0');
+  return budget > 0 && count >= budget;
+}
+
+function saveBudget() {
+  const val = document.getElementById('budget-input').value;
+  localStorage.setItem('mp-budget', val || '0');
+  loadUsage();
+}
+
+function toggleBudget() {
+  const on = localStorage.getItem('mp-budget-on') === 'true';
+  const newState = !on;
+  localStorage.setItem('mp-budget-on', newState);
+  const toggle = document.getElementById('budget-toggle');
+  const knob = document.getElementById('budget-toggle-knob');
+  toggle.style.background = newState ? 'var(--accent)' : 'var(--surface-3)';
+  knob.style.left = newState ? '18px' : '2px';
+  knob.style.background = newState ? '#fff' : 'var(--text-muted)';
+  showToast(newState ? '預算限制已開啟' : '預算限制已關閉');
+}
+
+function resetUsage() {
+  if (!confirm('確定要重置用量統計嗎？')) return;
+  localStorage.setItem('mp-usage-count', '0');
+  localStorage.setItem('mp-usage-tokens', '0');
+  loadUsage();
+  showToast('用量已重置');
 }
 
 function getActiveModel(role) {
