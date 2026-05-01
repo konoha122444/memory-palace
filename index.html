@@ -2317,7 +2317,7 @@ async function createNewConv() {
     date: new Date().toISOString().split('T')[0],
     bookmarked: false,
     trashed: false,
-    messages: note ? [{ role: 'assistant', content: note }] : []
+    messages: []
   };
   if (!appData.conversations.conversations) appData.conversations.conversations = [];
   appData.conversations.conversations.push(conv);
