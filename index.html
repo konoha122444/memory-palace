@@ -111,6 +111,44 @@
   --text-soft:  #8EA8B8;
   --text-muted: #5A6E78;
 }
+[data-theme="parchment"] {
+  --bg:         #F7F2EA;
+  --surface:    #F0E8DC;
+  --surface-2:  #E8DDD0;
+  --surface-3:  #DDD0C0;
+  --border:     #C8BAA8;
+  --border-soft:#D8CCBC;
+  --accent:     #8B5E3C;
+  --accent-dim: #A87050;
+  --accent-glow:rgba(139,94,60,0.10);
+  --gold:       #8A6A30;
+  --rose:       #A05858;
+  --text:       #2C2018;
+  --text-soft:  #5A4030;
+  --text-muted: #9A8070;
+  --bubble-assistant-bg: #FFFFFF;
+  --bubble-assistant-border: #DDD0C0;
+  --bubble-assistant-text: #3A2C20;
+}
+[data-theme="bloom"] {
+  --bg:         #F5F0F4;
+  --surface:    #EDE5EC;
+  --surface-2:  #E4DAE2;
+  --surface-3:  #D8CCD6;
+  --border:     #C4B4C2;
+  --border-soft:#D4C8D2;
+  --accent:     #8B5A7A;
+  --accent-dim: #A87094;
+  --accent-glow:rgba(139,90,122,0.10);
+  --gold:       #8A6A50;
+  --rose:       #A06070;
+  --text:       #281820;
+  --text-soft:  #584050;
+  --text-muted: #9A7888;
+  --bubble-assistant-bg: #FFFFFF;
+  --bubble-assistant-border: #D8CCD6;
+  --bubble-assistant-text: #281820;
+}
 
 /* ── THEME PICKER ───────────────────────────────────── */
 .theme-grid {
@@ -577,10 +615,10 @@ body {
   color: var(--text);
 }
 .bubble.assistant {
-  background: #1E2420;
-  border: 1px solid #2E3E30;
+  background: var(--bubble-assistant-bg, #2A3030);
+  border: 1px solid var(--bubble-assistant-border, #3A4840);
   border-bottom-left-radius: 4px;
-  color: var(--text-soft);
+  color: var(--bubble-assistant-text, #E8F0EE);
 }
 .bubble-meta {
   font-size: 0.65rem; color: var(--text-muted);
@@ -1089,6 +1127,10 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
               style="background:linear-gradient(135deg,#100C0A 50%,#A87848 50%)"></div>
             <div class="theme-dot" data-theme="stone" data-name="石青" onclick="setTheme('stone')"
               style="background:linear-gradient(135deg,#111314 50%,#7AADCC 50%)"></div>
+            <div class="theme-dot" data-theme="parchment" data-name="羊皮紙" onclick="setTheme('parchment')"
+              style="background:linear-gradient(135deg,#F7F2EA 50%,#8B5E3C 50%)"></div>
+            <div class="theme-dot" data-theme="bloom" data-name="花霧" onclick="setTheme('bloom')"
+              style="background:linear-gradient(135deg,#F5F0F4 50%,#8B5A7A 50%)"></div>
           </div>
         </div>
       </div>
@@ -1138,6 +1180,20 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
               style="margin-bottom:6px"
               oninput="saveApiKey()">
             <div id="api-key-status" style="font-size:0.72rem;color:var(--text-muted);letter-spacing:0.06em"></div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Ian 對話框顏色</div>
+            <div class="settings-row-desc">調整 Ian 回覆的背景色</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <div class="color-swatch" style="background:#FFFFFF;border:1.5px solid #ccc" onclick="setBubbleColor('#FFFFFF','#3A3A3A')" title="純白"></div>
+            <div class="color-swatch" style="background:#F5F0EA" onclick="setBubbleColor('#F5F0EA','#3A2C20')" title="奶油白"></div>
+            <div class="color-swatch" style="background:#EAF0F5" onclick="setBubbleColor('#EAF0F5','#1C2C3A')" title="霧藍白"></div>
+            <div class="color-swatch" style="background:#F0EAF5" onclick="setBubbleColor('#F0EAF5','#2C1C3A')" title="薰衣草白"></div>
+            <div class="color-swatch" style="background:#2A3030" onclick="setBubbleColor('#2A3030','#E8F0EE')" title="暗綠（預設）"></div>
+            <div class="color-swatch" style="background:#1E2228" onclick="setBubbleColor('#1E2228','#A8C4D8')" title="深藍"></div>
           </div>
         </div>
         <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:14px">
@@ -1414,6 +1470,7 @@ async function loadAllData() {
     renderConversations();
     renderCalendar();
     loadApiSettings();
+    loadBubbleColor();
 
   } catch(e) { showToast('讀取失敗：' + e.message); console.error(e); }
 }
@@ -1680,12 +1737,12 @@ async function toggleBookmarkNote(id) {
 }
 
 const BG_COLORS = {
-  'Ian':   ['#1E2228','#16161C','#1A1410','#141210','#0E0E12','#1E2420','#1E1A2A'],
-  '凝凝':  ['#2A2318','#282320','#231E18','#2A1E1E','#1E2422','#22202A','#1C2018']
+  'Ian':   ['#1E2228','#16161C','#1A1410','#1E2420','#FFFFFF','#EAF0F5','#F0EAF5'],
+  '凝凝':  ['#2A2318','#282320','#2A1E1E','#1E2422','#FFFFFF','#FFF8F0','#F5F0F4']
 };
 const TEXT_COLORS = {
-  'Ian':   ['#A8C4D8','#8A7EC8','#7AADCC','#EAE0D5','#A89888','#C4845A','#7E9E8A'],
-  '凝凝':  ['#E8D5B0','#D4A96A','#EAE0D5','#C4845A','#A8C4D8','#C47E7E','#A0B898']
+  'Ian':   ['#A8C4D8','#8A7EC8','#7AADCC','#7E9E8A','#2C3A48','#1C2C3A','#2C1C3A'],
+  '凝凝':  ['#E8D5B0','#D4A96A','#C4845A','#C47E7E','#3A2C20','#5A3020','#4A2830']
 };
 let selectedBgColor = '';
 let selectedTextColor = '';
@@ -2104,6 +2161,26 @@ function setTheme(theme) {
     d.classList.toggle('active', d.getAttribute('data-theme') === theme);
   });
   localStorage.setItem('mp-theme', theme);
+}
+
+function setBubbleColor(bg, text) {
+  document.documentElement.style.setProperty('--bubble-assistant-bg', bg);
+  document.documentElement.style.setProperty('--bubble-assistant-text', text);
+  // auto pick border as slightly darker version
+  document.documentElement.style.setProperty('--bubble-assistant-border', bg === '#FFFFFF' ? '#E0E0E0' : bg);
+  localStorage.setItem('mp-bubble-bg', bg);
+  localStorage.setItem('mp-bubble-text', text);
+  showToast('對話框顏色已更新');
+}
+
+function loadBubbleColor() {
+  const bg = localStorage.getItem('mp-bubble-bg');
+  const text = localStorage.getItem('mp-bubble-text');
+  if (bg) {
+    document.documentElement.style.setProperty('--bubble-assistant-bg', bg);
+    document.documentElement.style.setProperty('--bubble-assistant-text', text || '#333');
+    document.documentElement.style.setProperty('--bubble-assistant-border', bg === '#FFFFFF' ? '#E0E0E0' : bg);
+  }
 }
 
 function setFontSize(size) {
