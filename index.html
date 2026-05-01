@@ -978,6 +978,135 @@ body {
 .model-icon-btn[data-role="sub"].lit   { border-color:#D4A96A; box-shadow:0 0 8px rgba(212,169,106,0.3); }
 .model-icon-btn[data-role="fav"].lit   { border-color:#C4A86A; box-shadow:0 0 8px rgba(196,168,106,0.3); }
 
+
+/* ── CONV TABS ──────────────────────────────────────── */
+.conv-tabs {
+  display: flex; gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 0;
+}
+.conv-tab {
+  padding: 8px 16px;
+  border: none; background: none;
+  color: var(--text-muted);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.18s;
+}
+.conv-tab:hover { color: var(--text); }
+.conv-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.conv-tab .tab-count {
+  font-size: 0.68rem;
+  margin-left: 5px;
+  opacity: 0.6;
+}
+.trash-indicator {
+  font-size: 0.7rem;
+  color: var(--rose);
+  opacity: 0.5;
+  letter-spacing: 0.04em;
+}
+
+
+/* ── CONV TABS ──────────────────────────────────────── */
+.conv-tab-bar {
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 0;
+}
+.conv-tab {
+  padding: 8px 18px;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border: none; background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.18s;
+  font-family: 'Noto Serif TC', serif;
+}
+.conv-tab:hover { color: var(--text); }
+.conv-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.conv-tab-count {
+  font-size: 0.65rem;
+  background: var(--surface-3);
+  border-radius: 10px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  color: var(--text-muted);
+}
+
+/* ── CHAT INPUT ─────────────────────────────────────── */
+.chat-input-bar {
+  flex-shrink: 0;
+  padding: 16px 36px 20px;
+  border-top: 1px solid var(--border-soft);
+  display: flex; gap: 10px; align-items: flex-end;
+}
+.chat-input-wrap {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 16px;
+  transition: border-color 0.2s;
+}
+.chat-input-wrap:focus-within { border-color: var(--accent-dim); }
+.chat-input {
+  width: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  resize: none;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.chat-input::placeholder { color: var(--text-muted); }
+.chat-send-btn {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #1a0f08;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s;
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+.chat-send-btn:hover { background: #d4956a; }
+.chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-typing {
+  display: none;
+  padding: 8px 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  align-items: center; gap: 8px;
+}
+.chat-typing.visible { display: flex; }
+.typing-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent); opacity: 0.4;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
 /* ── MISC ───────────────────────────────────────────── */
 hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
 .flex { display: flex; }
@@ -1061,7 +1190,21 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
       <div id="conv-list-view">
         <div class="page-header">
           <div class="page-title">對話記錄</div>
-          <button class="btn btn-accent" onclick="openImportModal()">＋ 匯入對話</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="openNewConvModal()">＋ 新增對話</button>
+            <button class="btn btn-accent" onclick="openImportModal()">↑ 匯入</button>
+          </div>
+        </div>
+        <div class="conv-tabs">
+          <button class="conv-tab active" data-conv-tab="all" onclick="switchConvTab('all')">
+            全部<span class="tab-count" id="count-all"></span>
+          </button>
+          <button class="conv-tab" data-conv-tab="bookmarked" onclick="switchConvTab('bookmarked')">
+            收藏<span class="tab-count" id="count-bookmarked"></span>
+          </button>
+          <button class="conv-tab" data-conv-tab="trash" onclick="switchConvTab('trash')">
+            回收站<span class="tab-count" id="count-trash"></span>
+          </button>
         </div>
         <div class="conv-list" id="conv-container"></div>
       </div>
@@ -1073,7 +1216,8 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
             <div id="chat-date" style="font-size:0.72rem;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:2px"></div>
           </div>
           <button class="btn btn-ghost" onclick="toggleBookmarkConv()" id="bookmark-btn" style="font-size:1rem">☆</button>
-          <button class="btn" onclick="deleteConv()" style="color:var(--rose)">刪除</button>
+          <button class="btn" id="restore-btn" onclick="restoreConv()" style="display:none">還原</button>
+          <button class="btn" onclick="deleteConv()" id="delete-btn" style="color:var(--rose)">移至回收站</button>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
       </div>
@@ -1261,6 +1405,40 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
     <div class="modal-actions">
       <button class="btn" style="color:var(--rose)" onclick="deleteMemory()">刪除</button>
       <button class="btn ml-auto" onclick="closeModal('mem-modal')">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Conv Modal -->
+<div class="modal-bg" id="new-conv-modal">
+  <div class="modal">
+    <div class="modal-title">新增對話</div>
+    <div class="form-group">
+      <label class="form-label">對話標題</label>
+      <input class="form-input" id="new-conv-title" placeholder="給這段對話一個名字">
+    </div>
+    <div class="form-group">
+      <label class="form-label">備注（選填）</label>
+      <textarea class="form-textarea" id="new-conv-note" placeholder="關於這段對話的描述..." style="min-height:80px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('new-conv-modal')">取消</button>
+      <button class="btn btn-accent" onclick="createNewConv()">建立</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Conversation Modal -->
+<div class="modal-bg" id="new-conv-modal">
+  <div class="modal">
+    <div class="modal-title">新增對話</div>
+    <div class="form-group">
+      <label class="form-label">對話標題</label>
+      <input class="form-input" id="new-conv-title" placeholder="例：今天想說的事">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('new-conv-modal')">取消</button>
+      <button class="btn btn-accent" onclick="createNewConv()">建立</button>
     </div>
   </div>
 </div>
@@ -1826,27 +2004,54 @@ async function deleteNote(id) {
 }
 
 // ── CONVERSATIONS ─────────────────────────────────────────
+let currentConvTab = 'all';
+
+function switchConvTab(tab) {
+  currentConvTab = tab;
+  document.querySelectorAll('.conv-tab').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-conv-tab') === tab);
+  });
+  renderConversations();
+}
+
 function renderConversations() {
   const c = document.getElementById('conv-container');
-  const convs = appData.conversations?.conversations || [];
-  if (!convs.length) {
-    c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><div class="empty-state-text">還沒有匯入對話記錄</div></div>';
+  const all = appData.conversations?.conversations || [];
+
+  // Count for tabs
+  const active = all.filter(c => !c.trashed);
+  const bookmarked = active.filter(c => c.bookmarked);
+  const trashed = all.filter(c => c.trashed);
+  document.getElementById('count-all').textContent = active.length || '';
+  document.getElementById('count-bookmarked').textContent = bookmarked.length || '';
+  document.getElementById('count-trash').textContent = trashed.length || '';
+
+  let pool;
+  if (currentConvTab === 'all') pool = active;
+  else if (currentConvTab === 'bookmarked') pool = bookmarked;
+  else pool = trashed;
+
+  if (!pool.length) {
+    const icons = { all:'💬', bookmarked:'☆', trash:'🗑' };
+    const texts = { all:'還沒有對話記錄', bookmarked:'還沒有收藏的對話', trash:'回收站是空的' };
+    c.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${icons[currentConvTab]}</div><div class="empty-state-text">${texts[currentConvTab]}</div></div>`;
     return;
   }
-  const sorted = [...convs].sort((a,b) => b.date.localeCompare(a.date));
+
+  const sorted = [...pool].sort((a,b) => (b.date||'').localeCompare(a.date||''));
   c.innerHTML = sorted.map(conv => `
     <div class="conv-item" onclick="openConv('${conv.id}')">
       <span class="conv-source">${conv.source || 'claude'}</span>
       <div class="conv-info">
         <div class="conv-title">${escHtml(conv.title)}</div>
-        <div class="conv-date">${conv.date}</div>
+        <div class="conv-date">${conv.date}${conv.trashed ? ' <span class="trash-indicator">· 回收站</span>' : ''}</div>
       </div>
       ${conv.bookmarked ? '<span class="conv-bookmark">★</span>' : ''}
     </div>
   `).join('');
 }
 
-function openConv(id) {
+function openConv(id, tab) {
   const convs = appData.conversations?.conversations || [];
   const conv = convs.find(c => c.id === id);
   if (!conv) return;
@@ -1857,27 +2062,105 @@ function openConv(id) {
   document.getElementById('chat-title').textContent = conv.title;
   document.getElementById('chat-date').textContent = conv.date + ' · ' + (conv.source || 'claude');
   document.getElementById('bookmark-btn').textContent = conv.bookmarked ? '★' : '☆';
+  const isTrashed = !!conv.trashed;
+  document.getElementById('restore-btn').style.display = isTrashed ? 'inline-flex' : 'none';
+  document.getElementById('delete-btn').textContent = isTrashed ? '永久刪除' : '移至回收站';
+  document.getElementById('delete-btn').style.color = isTrashed ? 'var(--rose)' : 'var(--rose)';
 
+  const msgs = conv.messages || [];
+  renderChatMessages(conv);
+  scrollChatToBottom();
+}
+
+function closeChatView() {
+  document.getElementById('chat-view').classList.remove('open');
+  document.getElementById('conv-list-view').style.display = 'block';
+  currentConvId = null;
+}
+
+function autoResizeInput(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !currentConvId) return;
+
+  const convs = appData.conversations?.conversations || [];
+  const conv = convs.find(c => c.id === currentConvId);
+  if (!conv) return;
+
+  // Add user message
+  conv.messages.push({ role: 'user', content: text });
+  input.value = '';
+  input.style.height = 'auto';
+  renderChatMessages(conv);
+  scrollChatToBottom();
+
+  // Get API config
+  const provider = localStorage.getItem('mp-provider') || 'gemini';
+  const apiKey = localStorage.getItem('mp-apikey-' + provider);
+  if (!apiKey) {
+    showToast('請先在設定裡填入 API Key');
+    return;
+  }
+
+  // Show typing indicator
+  document.getElementById('chat-typing').classList.add('visible');
+  document.getElementById('chat-send-btn').disabled = true;
+
+  try {
+    let replyText = '';
+    if (provider === 'gemini') {
+      const model = getActiveModel('main').model || 'gemini-1.5-flash';
+      const history = conv.messages.slice(0,-1).map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content }]
+      }));
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ contents: [...history, { role:'user', parts:[{text}] }] })
+        }
+      );
+      const data = await res.json();
+      replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '（無回應）';
+    } else {
+      replyText = '目前僅支援 Gemini API 的即時對話';
+    }
+
+    conv.messages.push({ role: 'assistant', content: replyText });
+    await writeJsonFile(fileIds.conversations, appData.conversations);
+    renderChatMessages(conv);
+    scrollChatToBottom();
+  } catch(e) {
+    showToast('API 錯誤：' + e.message);
+    conv.messages.pop(); // remove failed user msg
+  } finally {
+    document.getElementById('chat-typing').classList.remove('visible');
+    document.getElementById('chat-send-btn').disabled = false;
+  }
+}
+
+function renderChatMessages(conv) {
   const msgs = conv.messages || [];
   document.getElementById('chat-messages').innerHTML = msgs.map(m => {
     const isUser = m.role === 'user';
     let html = '';
-    // Thinking block (collapsible)
     if (m.thinking) {
       html += `<div class="bubble-wrap assistant" style="margin-bottom:4px">
         <details style="max-width:68%">
-          <summary style="
-            font-size:0.72rem;color:var(--text-muted);cursor:pointer;
-            letter-spacing:0.08em;list-style:none;padding:6px 10px;
-            background:var(--surface-2);border:1px solid var(--border);
-            border-radius:8px;user-select:none;
-          ">▸ 思考過程</summary>
-          <div style="
-            margin-top:4px;padding:12px 14px;
-            background:var(--surface-2);border:1px solid var(--border);
-            border-radius:8px;font-size:0.8rem;line-height:1.75;
-            color:var(--text-muted);font-style:italic;white-space:pre-wrap;
-          ">${escHtml(m.thinking)}</div>
+          <summary style="font-size:0.72rem;color:var(--text-muted);cursor:pointer;letter-spacing:0.08em;list-style:none;padding:6px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;user-select:none;">▸ 思考過程</summary>
+          <div style="margin-top:4px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;font-size:0.8rem;line-height:1.75;color:var(--text-muted);font-style:italic;white-space:pre-wrap;">${escHtml(m.thinking)}</div>
         </details>
       </div>`;
     }
@@ -1889,10 +2172,9 @@ function openConv(id) {
   }).join('');
 }
 
-function closeChatView() {
-  document.getElementById('chat-view').classList.remove('open');
-  document.getElementById('conv-list-view').style.display = 'block';
-  currentConvId = null;
+function scrollChatToBottom() {
+  const el = document.getElementById('chat-messages');
+  setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
 }
 
 async function toggleBookmarkConv() {
@@ -1901,21 +2183,76 @@ async function toggleBookmarkConv() {
   if (!conv) return;
   conv.bookmarked = !conv.bookmarked;
   document.getElementById('bookmark-btn').textContent = conv.bookmarked ? '★' : '☆';
+  const isTrashed = !!conv.trashed;
+  document.getElementById('restore-btn').style.display = isTrashed ? 'inline-flex' : 'none';
+  document.getElementById('delete-btn').textContent = isTrashed ? '永久刪除' : '移至回收站';
+  document.getElementById('delete-btn').style.color = isTrashed ? 'var(--rose)' : 'var(--rose)';
   await writeJsonFile(fileIds.conversations, appData.conversations);
   renderConversations();
   showToast(conv.bookmarked ? '已收藏' : '已取消收藏');
 }
 
 async function deleteConv() {
-  if (!confirm('確定要刪除這段對話記錄嗎？')) return;
-  appData.conversations.conversations = appData.conversations.conversations.filter(c => c.id !== currentConvId);
+  const convs = appData.conversations?.conversations || [];
+  const conv = convs.find(c => c.id === currentConvId);
+  if (!conv) return;
+
+  if (conv.trashed) {
+    // Permanent delete from trash
+    if (!confirm('永久刪除這段對話？此操作無法還原。')) return;
+    appData.conversations.conversations = convs.filter(c => c.id !== currentConvId);
+    await writeJsonFile(fileIds.conversations, appData.conversations);
+    closeChatView();
+    renderConversations();
+    showToast('已永久刪除');
+  } else {
+    // Move to trash
+    conv.trashed = true;
+    await writeJsonFile(fileIds.conversations, appData.conversations);
+    closeChatView();
+    renderConversations();
+    showToast('已移至回收站');
+  }
+}
+
+async function restoreConv() {
+  const convs = appData.conversations?.conversations || [];
+  const conv = convs.find(c => c.id === currentConvId);
+  if (!conv) return;
+  conv.trashed = false;
   await writeJsonFile(fileIds.conversations, appData.conversations);
   closeChatView();
   renderConversations();
-  showToast('對話記錄已刪除');
+  showToast('已還原');
 }
 
 let importParsedConvs = [];
+
+function openNewConvModal() {
+  document.getElementById('new-conv-title').value = '';
+  document.getElementById('new-conv-note').value = '';
+  openModal('new-conv-modal');
+}
+
+async function createNewConv() {
+  const title = document.getElementById('new-conv-title').value.trim() || '新對話';
+  const note = document.getElementById('new-conv-note').value.trim();
+  const conv = {
+    id: 'conv_' + Date.now(),
+    title,
+    source: 'manual',
+    date: new Date().toISOString().split('T')[0],
+    bookmarked: false,
+    trashed: false,
+    messages: note ? [{ role: 'assistant', content: note }] : []
+  };
+  if (!appData.conversations.conversations) appData.conversations.conversations = [];
+  appData.conversations.conversations.push(conv);
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  closeModal('new-conv-modal');
+  renderConversations();
+  showToast('對話已建立');
+}
 
 function openImportModal() {
   document.getElementById('import-file').value = '';
