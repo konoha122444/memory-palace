@@ -2672,19 +2672,19 @@ function loadUsage() {
   const budget = parseInt(localStorage.getItem('mp-budget') || '0');
   const budgetOn = localStorage.getItem('mp-budget-on') === 'true';
 
-  document.getElementById('usage-count').textContent = count + ' 次';
-  document.getElementById('usage-tokens').textContent = tokens.toLocaleString();
+  const set = (id, fn) => { const el = document.getElementById(id); if (el) fn(el); };
+
+  set('usage-count', el => el.textContent = count + ' 次');
+  set('usage-tokens', el => el.textContent = tokens.toLocaleString());
   if (budget > 0) {
-    document.getElementById('usage-budget-label').textContent = '預算上限：' + budget + ' 次';
+    set('usage-budget-label', el => el.textContent = '預算上限：' + budget + ' 次');
     const pct = Math.min((count / budget) * 100, 100);
-    document.getElementById('usage-bar').style.width = pct + '%';
-    document.getElementById('usage-bar').style.background = pct > 85 ? 'var(--rose)' : 'var(--accent)';
-    document.getElementById('budget-input').value = budget;
+    set('usage-bar', el => { el.style.width = pct + '%'; el.style.background = pct > 85 ? 'var(--rose)' : 'var(--accent)'; });
+    set('budget-input', el => el.value = budget);
   }
   if (budgetOn) {
-    document.getElementById('budget-toggle').style.background = 'var(--accent)';
-    document.getElementById('budget-toggle-knob').style.left = '18px';
-    document.getElementById('budget-toggle-knob').style.background = '#fff';
+    set('budget-toggle', el => el.style.background = 'var(--accent)');
+    set('budget-toggle-knob', el => { el.style.left = '18px'; el.style.background = '#fff'; });
   }
 }
 
