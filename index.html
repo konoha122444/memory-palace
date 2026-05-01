@@ -1555,9 +1555,21 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
         line-height:1.8;
       "></div>
     </div>
+    <div class="form-group" style="padding:12px 0 0">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <div id="merge-toggle" onclick="toggleMergeMode()"
+          style="width:36px;height:20px;border-radius:10px;background:var(--accent);border:1px solid var(--border);cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0">
+          <div id="merge-toggle-knob" style="position:absolute;top:2px;left:18px;width:14px;height:14px;border-radius:50%;background:#fff;transition:all 0.2s"></div>
+        </div>
+        <div>
+          <div style="font-size:0.82rem;color:var(--text-soft)">疊加導入</div>
+          <div id="merge-desc" style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">只追加本地沒有的對話，已有對話保留本地版本</div>
+        </div>
+      </label>
+    </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('import-modal')">取消</button>
-      <button class="btn btn-accent" id="import-btn" onclick="importConversation()" disabled style="opacity:0.5">匯入全部</button>
+      <button class="btn btn-accent" id="import-btn" onclick="importConversation()" disabled style="opacity:0.5">匯入</button>
     </div>
   </div>
 </div>
@@ -2300,6 +2312,19 @@ async function restoreConv() {
 }
 
 let importParsedConvs = [];
+let importMergeMode = true; // default: merge (only add new)
+
+function toggleMergeMode() {
+  importMergeMode = !importMergeMode;
+  const toggle = document.getElementById('merge-toggle');
+  const knob = document.getElementById('merge-toggle-knob');
+  const desc = document.getElementById('merge-desc');
+  toggle.style.background = importMergeMode ? 'var(--accent)' : 'var(--surface-3)';
+  knob.style.left = importMergeMode ? '18px' : '2px';
+  desc.textContent = importMergeMode
+    ? '只追加本地沒有的對話，已有對話保留本地版本'
+    : '全部導入，不檢查重複';
+}
 
 function openNewConvModal() {
   document.getElementById('new-conv-title').value = '';
@@ -2313,6 +2338,7 @@ async function createNewConv() {
   const conv = {
     id: 'conv_' + Date.now(),
     title,
+    note,
     source: 'manual',
     date: new Date().toISOString().split('T')[0],
     bookmarked: false,
@@ -2335,6 +2361,11 @@ function openImportModal() {
   document.getElementById('upload-area').style.borderColor = 'var(--border)';
   document.getElementById('import-preview').style.display = 'none';
   importParsedConvs = [];
+  // Reset merge to default on
+  importMergeMode = true;
+  const toggle = document.getElementById('merge-toggle');
+  const knob = document.getElementById('merge-toggle-knob');
+  if (toggle) { toggle.style.background = 'var(--accent)'; knob.style.left = '18px'; }
   openModal('import-modal');
 }
 
@@ -2481,11 +2512,10 @@ async function importConversation() {
   if (!appData.conversations.conversations) appData.conversations.conversations = [];
   if (!appData.calendar.events) appData.calendar.events = {};
 
-  // Deduplicate by id
   const existingIds = new Set(appData.conversations.conversations.map(c => c.id));
-  let added = 0;
+  let added = 0, skipped = 0;
   importParsedConvs.forEach(conv => {
-    if (existingIds.has(conv.id)) return;
+    if (importMergeMode && existingIds.has(conv.id)) { skipped++; return; }
     appData.conversations.conversations.push(conv);
     // Mark calendar
     if (!appData.calendar.events[conv.date]) appData.calendar.events[conv.date] = { notes: '' };
@@ -2498,7 +2528,8 @@ async function importConversation() {
   await writeJsonFile(fileIds.calendar, appData.calendar);
   closeModal('import-modal');
   renderConversations();
-  showToast('已匯入 ' + added + ' 段對話，行事曆已標註');
+  const skipMsg = skipped > 0 ? `，略過 ${skipped} 段重複` : '';
+  showToast(`已匯入 ${added} 段對話${skipMsg}，行事曆已標註`);
 }
 
 // ── CALENDAR ─────────────────────────────────────────────
