@@ -452,14 +452,37 @@ body {
   background: #1E2228;
   border: 1px solid #2E3A44;
 }
+.sticky-note.bookmarked {
+  box-shadow: 0 0 0 1.5px var(--gold);
+}
 .note-author {
   font-size: 0.7rem;
   letter-spacing: 0.15em;
   margin-bottom: 10px;
-  opacity: 0.6;
+  display: flex; align-items: center; justify-content: space-between;
 }
-.by-凝凝 .note-author { color: var(--gold); }
-.by-Ian   .note-author { color: #7AADCC; }
+.note-author-name { opacity: 0.6; }
+.by-凝凝 .note-author-name { color: var(--gold); }
+.by-Ian   .note-author-name { color: #7AADCC; }
+.note-bookmark-indicator { font-size: 0.8rem; opacity: 0.7; }
+
+/* color picker */
+.color-picker-row {
+  display: flex; gap: 8px; align-items: center;
+  margin-bottom: 6px;
+}
+.color-picker-label {
+  font-size: 0.72rem; color: var(--text-muted);
+  letter-spacing: 0.06em; width: 48px; flex-shrink: 0;
+}
+.color-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.color-swatch {
+  width: 22px; height: 22px; border-radius: 50%;
+  cursor: pointer; border: 2px solid transparent;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.active { border-color: var(--text); }
 .note-content {
   font-size: 0.9rem;
   line-height: 1.8;
@@ -1088,7 +1111,21 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
     <div class="modal-title" id="note-modal-title">留言</div>
     <div class="form-group">
       <label class="form-label">內容</label>
-      <textarea class="form-textarea" id="note-content" placeholder="想說什麼都可以..."></textarea>
+      <textarea class="form-textarea" id="note-content" placeholder="想說什麼都可以..." oninput="updateNotePreview()"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">便條紙顏色</label>
+      <div class="color-picker-row">
+        <span class="color-picker-label">背景</span>
+        <div class="color-swatches" id="bg-swatches"></div>
+      </div>
+      <div class="color-picker-row">
+        <span class="color-picker-label">文字</span>
+        <div class="color-swatches" id="text-swatches"></div>
+      </div>
+      <div style="margin-top:12px;padding:12px 16px;border-radius:8px;font-size:0.85rem;line-height:1.7;transition:all 0.2s" id="note-preview">
+        預覽文字效果
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('note-modal')">取消</button>
@@ -1521,33 +1558,114 @@ function renderMessages() {
     c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-text">留言板還是空的</div></div>';
     return;
   }
-  const sorted = [...msgs].reverse();
-  c.innerHTML = sorted.map(m => `
-    <div class="sticky-note by-${m.author}" id="note-${m.id}">
+  // Bookmarked first, then reverse chronological
+  const sorted = [...msgs].sort((a,b) => {
+    if (a.bookmarked && !b.bookmarked) return -1;
+    if (!a.bookmarked && b.bookmarked) return 1;
+    return 0;
+  }).reverse().sort((a,b) => (b.bookmarked?1:0)-(a.bookmarked?1:0));
+
+  c.innerHTML = sorted.map(m => {
+    const bg = m.bgColor || (m.author === 'Ian' ? '#1E2228' : '#2A2318');
+    const tc = m.textColor || (m.author === 'Ian' ? '#A8C4D8' : '#E8D5B0');
+    const border = m.author === 'Ian' ? '#2E3A44' : '#4A3E2A';
+    return `<div class="sticky-note by-${m.author}${m.bookmarked?' bookmarked':''}" id="note-${m.id}"
+        style="background:${bg};border-color:${border}">
       <div class="note-actions">
+        <button class="icon-btn" onclick="toggleBookmarkNote('${m.id}')" title="${m.bookmarked?'取消收藏':'收藏'}">${m.bookmarked?'★':'☆'}</button>
         <button class="icon-btn" onclick="deleteNote('${m.id}')" title="刪除">✕</button>
       </div>
-      <div class="note-author">${m.author}</div>
-      <div class="note-content">${escHtml(m.content)}</div>
+      <div class="note-author">
+        <span class="note-author-name">${m.author}</span>
+        ${m.bookmarked ? '<span class="note-bookmark-indicator">★</span>' : ''}
+      </div>
+      <div class="note-content" style="color:${tc}">${escHtml(m.content)}</div>
       <div class="note-date">${m.date}</div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
+
+async function toggleBookmarkNote(id) {
+  const msgs = appData.messages?.messages || [];
+  const m = msgs.find(x => x.id === id);
+  if (!m) return;
+  m.bookmarked = !m.bookmarked;
+  await writeJsonFile(fileIds.messages, appData.messages);
+  renderMessages();
+  showToast(m.bookmarked ? '已收藏' : '已取消收藏');
+}
+
+const BG_COLORS = {
+  'Ian':   ['#1E2228','#16161C','#1A1410','#141210','#0E0E12','#1E2420','#1E1A2A'],
+  '凝凝':  ['#2A2318','#282320','#231E18','#2A1E1E','#1E2422','#22202A','#1C2018']
+};
+const TEXT_COLORS = {
+  'Ian':   ['#A8C4D8','#8A7EC8','#7AADCC','#EAE0D5','#A89888','#C4845A','#7E9E8A'],
+  '凝凝':  ['#E8D5B0','#D4A96A','#EAE0D5','#C4845A','#A8C4D8','#C47E7E','#A0B898']
+};
+let selectedBgColor = '';
+let selectedTextColor = '';
 
 function openNoteModal(author) {
   currentNoteAuthor = author;
   document.getElementById('note-modal-title').textContent = author + ' 的留言';
   document.getElementById('note-content').value = '';
+
+  selectedBgColor = BG_COLORS[author][0];
+  selectedTextColor = TEXT_COLORS[author][0];
+
+  // Render bg swatches
+  const bgEl = document.getElementById('bg-swatches');
+  bgEl.innerHTML = BG_COLORS[author].map(c =>
+    `<div class="color-swatch${c===selectedBgColor?' active':''}" style="background:${c}"
+      onclick="selectColor('bg','${c}')"></div>`
+  ).join('');
+
+  // Render text swatches
+  const tcEl = document.getElementById('text-swatches');
+  tcEl.innerHTML = TEXT_COLORS[author].map(c =>
+    `<div class="color-swatch${c===selectedTextColor?' active':''}"
+      style="background:${c};border-color:rgba(255,255,255,0.15)"
+      onclick="selectColor('text','${c}')"></div>`
+  ).join('');
+
+  updateNotePreview();
   openModal('note-modal');
 }
 
+function selectColor(type, color) {
+  if (type === 'bg') {
+    selectedBgColor = color;
+    document.querySelectorAll('#bg-swatches .color-swatch').forEach(s => {
+      s.classList.toggle('active', s.style.background === color);
+    });
+  } else {
+    selectedTextColor = color;
+    document.querySelectorAll('#text-swatches .color-swatch').forEach(s => {
+      s.classList.toggle('active', s.style.background === color);
+    });
+  }
+  updateNotePreview();
+}
+
+function updateNotePreview() {
+  const prev = document.getElementById('note-preview');
+  const text = document.getElementById('note-content').value || '預覽文字效果';
+  prev.style.background = selectedBgColor;
+  prev.style.color = selectedTextColor;
+  prev.textContent = text;
+}
+
 async function saveNote() {
-  const content = document.getElementById('note-content').value.trim();
-  if (!content) return;
+  const noteContent = document.getElementById('note-content').value.trim();
+  if (!noteContent) return;
   const msg = {
     id: 'msg_' + Date.now(),
     author: currentNoteAuthor,
-    content,
+    content: noteContent,
+    bgColor: selectedBgColor,
+    textColor: selectedTextColor,
+    bookmarked: false,
     date: new Date().toLocaleString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
   };
   if (!appData.messages.messages) appData.messages.messages = [];
