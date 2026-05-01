@@ -1217,6 +1217,7 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
           <button class="btn btn-ghost" onclick="closeChatView()">← 返回</button>
           <div style="flex:1">
             <div id="chat-title" style="font-size:0.95rem;color:var(--text)"></div>
+            <div id="chat-subtitle" style="font-size:0.72rem;color:var(--accent);margin-top:1px;font-style:italic"></div>
             <div id="chat-date" style="font-size:0.72rem;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:2px"></div>
           </div>
           <button class="btn btn-ghost" onclick="toggleBookmarkConv()" id="bookmark-btn" style="font-size:1rem">☆</button>
@@ -1224,6 +1225,19 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
           <button class="btn" onclick="deleteConv()" id="delete-btn" style="color:var(--rose)">移至回收站</button>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-typing" id="chat-typing">
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+          <span>Ian 正在思考…</span>
+        </div>
+        <div class="chat-input-bar">
+          <div class="chat-input-wrap">
+            <textarea class="chat-input" id="chat-input" rows="1"
+              placeholder="說點什麼…"
+              onkeydown="handleChatKey(event)"
+              oninput="autoResizeInput(this)"></textarea>
+          </div>
+          <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()">↑</button>
+        </div>
       </div>
     </div>
 
@@ -1482,6 +1496,10 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
     <div class="form-group">
       <label class="form-label">對話標題</label>
       <input class="form-input" id="new-conv-title" placeholder="例：今天想說的事">
+    </div>
+    <div class="form-group">
+      <label class="form-label">備註（選填）</label>
+      <input class="form-input" id="new-conv-note" placeholder="會顯示在標題旁邊">
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('new-conv-modal')">取消</button>
@@ -2110,6 +2128,8 @@ function openConv(id, tab) {
   document.getElementById('chat-title').textContent = conv.title;
   document.getElementById('chat-date').textContent = conv.date + ' · ' + (conv.source || 'claude');
   document.getElementById('bookmark-btn').textContent = conv.bookmarked ? '★' : '☆';
+  const subtitleEl = document.getElementById('chat-subtitle');
+  if (subtitleEl) subtitleEl.textContent = conv.note || '';
   const isTrashed = !!conv.trashed;
   document.getElementById('restore-btn').style.display = isTrashed ? 'inline-flex' : 'none';
   document.getElementById('delete-btn').textContent = isTrashed ? '永久刪除' : '移至回收站';
