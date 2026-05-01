@@ -906,6 +906,40 @@ body {
 .memory-card.hidden { display: none; }
 .room-section.empty { display: none; }
 
+
+/* ── MODEL PICKER ───────────────────────────────────── */
+.model-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.model-row:last-child { border-bottom: none; }
+.model-name { flex:1; font-size:0.85rem; color:var(--text-soft); }
+.model-name-sub { font-size:0.72rem; color:var(--text-muted); display:block; margin-top:2px; }
+.model-icons { display:flex; gap:8px; }
+.model-icon-btn {
+  width:32px; height:32px;
+  border-radius:8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;
+  opacity: 0.3;
+  transition: all 0.18s;
+  position: relative;
+}
+.model-icon-btn:hover { opacity:0.6; border-color:var(--accent-dim); }
+.model-icon-btn.lit {
+  opacity: 1;
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.model-icon-btn[data-role="main"].lit  { border-color:#C4845A; box-shadow:0 0 8px rgba(196,132,90,0.3); }
+.model-icon-btn[data-role="sub"].lit   { border-color:#D4A96A; box-shadow:0 0 8px rgba(212,169,106,0.3); }
+.model-icon-btn[data-role="fav"].lit   { border-color:#C4A86A; box-shadow:0 0 8px rgba(196,168,106,0.3); }
+
 /* ── MISC ───────────────────────────────────────────── */
 hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
 .flex { display: flex; }
@@ -1090,11 +1124,37 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
         </div>
       </div>
       <div class="settings-section">
+        <div class="settings-label">AI 對話設定</div>
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:14px">
+          <div style="width:100%">
+            <div class="settings-row-label" style="margin-bottom:10px">服務商</div>
+            <select class="form-select" id="api-provider" onchange="updateApiProviderUI()" style="margin-bottom:10px">
+              <option value="gemini">Google Gemini</option>
+              <option value="anthropic">Anthropic Claude（需付費帳戶）</option>
+              <option value="openai">OpenAI</option>
+            </select>
+            <input class="form-input" id="api-key-input" type="password"
+              placeholder="貼上你的 API Key"
+              style="margin-bottom:6px"
+              oninput="saveApiKey()">
+            <div id="api-key-status" style="font-size:0.72rem;color:var(--text-muted);letter-spacing:0.06em"></div>
+          </div>
+        </div>
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:14px">
+          <div>
+            <div class="settings-row-label">模型指定</div>
+            <div class="settings-row-desc" style="margin-top:3px">點亮要使用的模型角色</div>
+          </div>
+          <div id="model-picker" style="width:100%"></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <div class="settings-label">關於</div>
         <div class="settings-row">
           <div>
             <div class="settings-row-label">記憶宮殿</div>
-            <div class="settings-row-desc">Ian 與凝凝共同的空間 · 2024</div>
+            <div class="settings-row-desc">Ian 與凝凝共同的空間 · 2025</div>
           </div>
         </div>
       </div>
@@ -1151,29 +1211,28 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
 
 <!-- Import Modal -->
 <div class="modal-bg" id="import-modal">
-  <div class="modal">
+  <div class="modal" style="max-width:580px">
     <div class="modal-title">匯入對話記錄</div>
     <div class="form-group">
-      <label class="form-label">對話標題</label>
-      <input class="form-input" id="import-title" placeholder="例：關於記憶宮殿的那天">
-    </div>
-    <div class="form-group">
-      <label class="form-label">來源</label>
-      <select class="form-select" id="import-source">
-        <option value="claude">Claude</option>
-        <option value="gemini">Gemini</option>
-        <option value="other">其他</option>
+      <label class="form-label">來源格式</label>
+      <select class="form-select" id="import-source" onchange="updateImportHint()">
+        <option value="claude_export">Claude 匯出（conversations.json / project JSON）</option>
+        <option value="gemini">Gemini JSON</option>
+        <option value="other">其他 JSON</option>
       </select>
+      <div id="import-hint" style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);line-height:1.6">
+        請上傳 Claude 匯出的 conversations.json，或 projects 資料夾內的單一對話 JSON
+      </div>
     </div>
     <div class="form-group">
-      <label class="form-label">上傳 JSON 檔案</label>
+      <label class="form-label">上傳 JSON 檔案（可多選）</label>
       <div id="upload-area" style="
         border: 1px dashed var(--border);
         border-radius: var(--radius);
         padding: 28px;
         text-align: center;
         cursor: pointer;
-        transition: border-color 0.2s, background 0.2s;
+        transition: border-color 0.2s;
         color: var(--text-muted);
         font-size: 0.85rem;
         letter-spacing: 0.06em;
@@ -1181,15 +1240,25 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
          ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
          ondragleave="this.style.borderColor='var(--border)'"
          ondrop="handleFileDrop(event)">
-        <div style="font-size:1.8rem;margin-bottom:10px;opacity:0.4">📄</div>
+        <div style="font-size:1.8rem;margin-bottom:10px;opacity:0.4">📂</div>
         <div>點擊或拖曳 JSON 檔案至此</div>
-        <div id="upload-filename" style="margin-top:8px;color:var(--accent);font-size:0.78rem"></div>
+        <div id="upload-filename" style="margin-top:8px;color:var(--accent);font-size:0.78rem;line-height:1.6"></div>
       </div>
-      <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleFileSelect(this)">
+      <input type="file" id="import-file" accept=".json" multiple style="display:none" onchange="handleFileSelect(this)">
+    </div>
+    <div id="import-preview" style="display:none">
+      <label class="form-label">偵測到的對話</label>
+      <div id="import-preview-list" style="
+        max-height:180px;overflow-y:auto;
+        background:var(--surface-2);border:1px solid var(--border);
+        border-radius:8px;padding:10px;
+        font-size:0.8rem;color:var(--text-soft);
+        line-height:1.8;
+      "></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('import-modal')">取消</button>
-      <button class="btn btn-accent" id="import-btn" onclick="importConversation()" disabled style="opacity:0.5">匯入</button>
+      <button class="btn btn-accent" id="import-btn" onclick="importConversation()" disabled style="opacity:0.5">匯入全部</button>
     </div>
   </div>
 </div>
@@ -1344,6 +1413,7 @@ async function loadAllData() {
     renderMessages();
     renderConversations();
     renderCalendar();
+    loadApiSettings();
 
   } catch(e) { showToast('讀取失敗：' + e.message); console.error(e); }
 }
@@ -1732,12 +1802,34 @@ function openConv(id) {
   document.getElementById('bookmark-btn').textContent = conv.bookmarked ? '★' : '☆';
 
   const msgs = conv.messages || [];
-  document.getElementById('chat-messages').innerHTML = msgs.map(m => `
-    <div class="bubble-wrap ${m.role === 'user' ? 'human' : 'assistant'}">
-      <div class="bubble ${m.role === 'user' ? 'human' : 'assistant'}">${escHtml(m.content)}</div>
-      <div class="bubble-meta">${m.role === 'user' ? '凝凝' : 'Ian'}</div>
-    </div>
-  `).join('');
+  document.getElementById('chat-messages').innerHTML = msgs.map(m => {
+    const isUser = m.role === 'user';
+    let html = '';
+    // Thinking block (collapsible)
+    if (m.thinking) {
+      html += `<div class="bubble-wrap assistant" style="margin-bottom:4px">
+        <details style="max-width:68%">
+          <summary style="
+            font-size:0.72rem;color:var(--text-muted);cursor:pointer;
+            letter-spacing:0.08em;list-style:none;padding:6px 10px;
+            background:var(--surface-2);border:1px solid var(--border);
+            border-radius:8px;user-select:none;
+          ">▸ 思考過程</summary>
+          <div style="
+            margin-top:4px;padding:12px 14px;
+            background:var(--surface-2);border:1px solid var(--border);
+            border-radius:8px;font-size:0.8rem;line-height:1.75;
+            color:var(--text-muted);font-style:italic;white-space:pre-wrap;
+          ">${escHtml(m.thinking)}</div>
+        </details>
+      </div>`;
+    }
+    html += `<div class="bubble-wrap ${isUser?'human':'assistant'}">
+      <div class="bubble ${isUser?'human':'assistant'}">${escHtml(m.content)}</div>
+      <div class="bubble-meta">${isUser?'凝凝':'Ian'}</div>
+    </div>`;
+    return html;
+  }).join('');
 }
 
 function closeChatView() {
@@ -1766,121 +1858,180 @@ async function deleteConv() {
   showToast('對話記錄已刪除');
 }
 
-let importFileData = null;
+let importParsedConvs = [];
 
 function openImportModal() {
-  document.getElementById('import-title').value = '';
   document.getElementById('import-file').value = '';
   document.getElementById('upload-filename').textContent = '';
   document.getElementById('import-btn').disabled = true;
   document.getElementById('import-btn').style.opacity = '0.5';
   document.getElementById('upload-area').style.borderColor = 'var(--border)';
-  importFileData = null;
+  document.getElementById('import-preview').style.display = 'none';
+  importParsedConvs = [];
   openModal('import-modal');
 }
 
+function updateImportHint() {
+  const src = document.getElementById('import-source').value;
+  const hints = {
+    claude_export: '請上傳 Claude 匯出的 conversations.json，或 projects 資料夾內的單一對話 JSON（可一次選多個）',
+    gemini: '請上傳 Gemini 匯出的 JSON 檔案',
+    other: '請上傳包含 messages 陣列的 JSON 檔案'
+  };
+  document.getElementById('import-hint').textContent = hints[src] || '';
+}
+
 function handleFileSelect(input) {
-  const file = input.files[0];
-  if (file) readImportFile(file);
+  const files = Array.from(input.files);
+  if (files.length) processFiles(files);
 }
 
 function handleFileDrop(event) {
   event.preventDefault();
   document.getElementById('upload-area').style.borderColor = 'var(--border)';
-  const file = event.dataTransfer.files[0];
-  if (file && file.name.endsWith('.json')) readImportFile(file);
+  const files = Array.from(event.dataTransfer.files).filter(f => f.name.endsWith('.json'));
+  if (files.length) processFiles(files);
   else showToast('請上傳 .json 格式的檔案');
 }
 
-function readImportFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      importFileData = JSON.parse(e.target.result);
-      document.getElementById('upload-filename').textContent = '✓ ' + file.name;
-      document.getElementById('import-btn').disabled = false;
-      document.getElementById('import-btn').style.opacity = '1';
-      document.getElementById('upload-area').style.borderColor = 'var(--accent-dim)';
-      // Auto-detect title from JSON if available
-      const titleEl = document.getElementById('import-title');
-      if (!titleEl.value) {
-        const guessed = importFileData.name || importFileData.title || importFileData.conversation_id || '';
-        if (guessed) titleEl.value = guessed;
-      }
-    } catch {
-      showToast('JSON 格式有誤，請確認檔案內容');
-    }
-  };
-  reader.readAsText(file);
+function processFiles(files) {
+  importParsedConvs = [];
+  let loaded = 0;
+  const allData = [];
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        allData.push({ name: file.name, data: JSON.parse(e.target.result) });
+      } catch { showToast('檔案格式有誤：' + file.name); }
+      loaded++;
+      if (loaded === files.length) finishParsing(allData);
+    };
+    reader.readAsText(file);
+  });
 }
 
-function extractDateFromJson(data) {
-  // Try various Claude/Gemini export date fields
-  const candidates = [
-    data.created_at, data.create_time, data.date,
-    data.updated_at, data.update_time,
-    data.chat_messages?.[0]?.created_at,
-    data.messages?.[0]?.created_at,
-    data.messages?.[0]?.timestamp,
-  ];
+function finishParsing(allData) {
+  const source = document.getElementById('import-source').value;
+  importParsedConvs = [];
+
+  allData.forEach(({ name, data }) => {
+    if (source === 'claude_export') {
+      // conversations.json = array of conversation objects
+      if (Array.isArray(data)) {
+        data.forEach(conv => {
+          const parsed = parseClaudeConv(conv);
+          if (parsed) importParsedConvs.push(parsed);
+        });
+      }
+      // Single project or conversation JSON
+      else if (data.uuid || data.chat_messages || data.prompt_template !== undefined) {
+        const parsed = parseClaudeConv(data);
+        if (parsed) importParsedConvs.push(parsed);
+      }
+    } else {
+      // Generic JSON
+      importParsedConvs.push(parseGenericConv(data, name));
+    }
+  });
+
+  // Show preview
+  const filenameEl = document.getElementById('upload-filename');
+  filenameEl.textContent = '✓ ' + allData.map(f=>f.name).join('、');
+  document.getElementById('upload-area').style.borderColor = 'var(--accent-dim)';
+
+  if (importParsedConvs.length) {
+    document.getElementById('import-preview').style.display = 'block';
+    document.getElementById('import-preview-list').innerHTML =
+      importParsedConvs.map((c,i) =>
+        `<div style="padding:4px 0;border-bottom:1px solid var(--border-soft)">
+          <span style="color:var(--accent);font-family:'DM Mono',monospace">${String(i+1).padStart(2,'0')}</span>
+          &nbsp;${c.title}
+          <span style="color:var(--text-muted);font-size:0.72rem;float:right">${c.date} · ${c.messages.length}則</span>
+        </div>`
+      ).join('');
+    document.getElementById('import-btn').textContent = '匯入全部（' + importParsedConvs.length + '）';
+    document.getElementById('import-btn').disabled = false;
+    document.getElementById('import-btn').style.opacity = '1';
+  } else {
+    showToast('沒有找到可匯入的對話內容');
+  }
+}
+
+function parseClaudeConv(data) {
+  // Claude project JSON (has prompt_template = system prompt, no chat_messages at top level)
+  if (data.prompt_template !== undefined && !data.chat_messages) return null;
+
+  const title = data.name || data.title || '無題對話';
+  const date = extractDate([data.created_at, data.updated_at]);
+
+  let messages = [];
+  const raw = data.chat_messages || data.messages || [];
+  raw.forEach(m => {
+    const role = (m.sender === 'human' || m.role === 'user') ? 'user' : 'assistant';
+    let text = '';
+    let thinking = '';
+    if (typeof m.content === 'string') text = m.content;
+    else if (typeof m.text === 'string') text = m.text;
+    else if (Array.isArray(m.content)) {
+      m.content.forEach(block => {
+        if (block.type === 'thinking') thinking = block.thinking || '';
+        else if (block.type === 'text') text += block.text || '';
+        else if (typeof block === 'string') text += block;
+      });
+    }
+    if (text.trim() || thinking.trim()) {
+      messages.push({ role, content: text.trim(), thinking: thinking.trim() || undefined });
+    }
+  });
+
+  if (!messages.length) return null;
+  return { id: 'conv_' + (data.uuid || Date.now()), title, source: 'claude', date, bookmarked: false, messages };
+}
+
+function parseGenericConv(data, filename) {
+  const title = data.name || data.title || filename.replace('.json','');
+  const date = extractDate([data.created_at, data.date, data.create_time]);
+  const raw = data.messages || data.chat_messages || (Array.isArray(data) ? data : []);
+  const messages = raw.map(m => ({
+    role: (m.sender === 'human' || m.role === 'user') ? 'user' : 'assistant',
+    content: typeof m.content === 'string' ? m.content : m.text || '',
+  })).filter(m => m.content.trim());
+  return { id: 'conv_' + Date.now() + Math.random(), title, source: 'other', date, bookmarked: false, messages };
+}
+
+function extractDate(candidates) {
   for (const c of candidates) {
     if (!c) continue;
     const d = new Date(c);
-    if (!isNaN(d.getTime())) {
-      return d.toISOString().split('T')[0];
-    }
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
   }
   return new Date().toISOString().split('T')[0];
 }
 
 async function importConversation() {
-  if (!importFileData) return;
-  const title = document.getElementById('import-title').value.trim() || '無題對話';
-  const source = document.getElementById('import-source').value;
-  const data = importFileData;
-
-  // Auto-detect date from JSON
-  const date = extractDateFromJson(data);
-
-  // Parse messages from various export formats
-  let messages = [];
-  if (data.chat_messages) {
-    // Claude.ai export format
-    messages = data.chat_messages.map(m => ({
-      role: m.sender === 'human' ? 'user' : 'assistant',
-      content: typeof m.content === 'string' ? m.content :
-               m.content?.map?.(c => c.text || '').join('') || m.text || ''
-    }));
-  } else if (data.mapping) {
-    // ChatGPT-style export
-    const nodes = Object.values(data.mapping).filter(n => n.message?.content?.parts);
-    nodes.sort((a,b) => (a.message.create_time||0)-(b.message.create_time||0));
-    messages = nodes.map(n => ({
-      role: n.message.author.role === 'user' ? 'user' : 'assistant',
-      content: n.message.content.parts.join('')
-    })).filter(m => m.content.trim());
-  } else if (Array.isArray(data)) {
-    messages = data.map(m => ({ role: m.role || 'user', content: m.content || m.text || '' }));
-  } else if (data.messages) {
-    messages = data.messages.map(m => ({ role: m.role || 'user', content: m.content || m.text || '' }));
-  }
-
-  const conv = { id: 'conv_' + Date.now(), title, source, date, bookmarked: false, messages };
+  if (!importParsedConvs.length) return;
   if (!appData.conversations.conversations) appData.conversations.conversations = [];
-  appData.conversations.conversations.push(conv);
-  await writeJsonFile(fileIds.conversations, appData.conversations);
-
-  // Auto-mark calendar on that date
   if (!appData.calendar.events) appData.calendar.events = {};
-  if (!appData.calendar.events[date]) appData.calendar.events[date] = { notes: '' };
-  const existing = appData.calendar.events[date].notes || '';
-  const newNote = existing ? existing + '\n· ' + title : '· ' + title;
-  appData.calendar.events[date].notes = newNote;
-  await writeJsonFile(fileIds.calendar, appData.calendar);
 
+  // Deduplicate by id
+  const existingIds = new Set(appData.conversations.conversations.map(c => c.id));
+  let added = 0;
+  importParsedConvs.forEach(conv => {
+    if (existingIds.has(conv.id)) return;
+    appData.conversations.conversations.push(conv);
+    // Mark calendar
+    if (!appData.calendar.events[conv.date]) appData.calendar.events[conv.date] = { notes: '' };
+    const ex = appData.calendar.events[conv.date].notes || '';
+    appData.calendar.events[conv.date].notes = ex ? ex + '\n· ' + conv.title : '· ' + conv.title;
+    added++;
+  });
+
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  await writeJsonFile(fileIds.calendar, appData.calendar);
   closeModal('import-modal');
   renderConversations();
-  showToast('已匯入，並標註於行事曆 ' + date);
+  showToast('已匯入 ' + added + ' 段對話，行事曆已標註');
 }
 
 // ── CALENDAR ─────────────────────────────────────────────
@@ -1959,6 +2110,104 @@ function setFontSize(size) {
   document.body.setAttribute('data-size', size === 'medium' ? '' : size);
   document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
+}
+
+// ── API SETTINGS ─────────────────────────────────────────
+const PROVIDER_MODELS = {
+  gemini: [
+    { id:'gemini-2.0-flash', name:'Gemini 2.0 Flash', desc:'快速・免費額度' },
+    { id:'gemini-1.5-flash', name:'Gemini 1.5 Flash', desc:'穩定・免費額度' },
+    { id:'gemini-1.5-pro',   name:'Gemini 1.5 Pro',   desc:'強力・較慢' },
+  ],
+  anthropic: [
+    { id:'claude-sonnet-4-5', name:'Claude Sonnet', desc:'均衡效能' },
+    { id:'claude-haiku-4-5',  name:'Claude Haiku',  desc:'輕量快速' },
+  ],
+  openai: [
+    { id:'gpt-4o-mini', name:'GPT-4o Mini', desc:'快速・低成本' },
+    { id:'gpt-4o',      name:'GPT-4o',      desc:'旗艦模型' },
+  ]
+};
+
+let modelRoles = {}; // { modelId: Set(['main','sub','fav']) }
+
+function loadApiSettings() {
+  const provider = localStorage.getItem('mp-provider') || 'gemini';
+  const key = localStorage.getItem('mp-apikey-' + provider) || '';
+  document.getElementById('api-provider').value = provider;
+  document.getElementById('api-key-input').value = key;
+  modelRoles = JSON.parse(localStorage.getItem('mp-model-roles') || '{}');
+  Object.keys(modelRoles).forEach(k => { modelRoles[k] = new Set(modelRoles[k]); });
+  updateApiProviderUI();
+  if (key) document.getElementById('api-key-status').textContent = '✓ Key 已儲存';
+}
+
+function saveApiKey() {
+  const provider = document.getElementById('api-provider').value;
+  const key = document.getElementById('api-key-input').value.trim();
+  localStorage.setItem('mp-provider', provider);
+  localStorage.setItem('mp-apikey-' + provider, key);
+  document.getElementById('api-key-status').textContent = key ? '✓ Key 已儲存' : '';
+}
+
+function updateApiProviderUI() {
+  const provider = document.getElementById('api-provider').value;
+  localStorage.setItem('mp-provider', provider);
+  const savedKey = localStorage.getItem('mp-apikey-' + provider) || '';
+  document.getElementById('api-key-input').value = savedKey;
+  document.getElementById('api-key-status').textContent = savedKey ? '✓ Key 已儲存' : '';
+  renderModelPicker(provider);
+}
+
+function renderModelPicker(provider) {
+  const models = PROVIDER_MODELS[provider] || [];
+  const el = document.getElementById('model-picker');
+  el.innerHTML = `
+    <div style="display:flex;gap:20px;font-size:0.68rem;color:var(--text-muted);letter-spacing:0.1em;margin-bottom:10px;padding:0 2px">
+      <span>🍓 主模型</span><span>🍊 副模型</span><span>⭐ 收藏</span>
+    </div>
+  ` + models.map(m => {
+    const roles = modelRoles[m.id] || new Set();
+    return `<div class="model-row">
+      <div class="model-name">${m.name}<span class="model-name-sub">${m.desc}</span></div>
+      <div class="model-icons">
+        <button class="model-icon-btn${roles.has('main')?' lit':''}" data-role="main"
+          onclick="toggleModelRole('${m.id}','main')" title="設為主模型">🍓</button>
+        <button class="model-icon-btn${roles.has('sub')?' lit':''}" data-role="sub"
+          onclick="toggleModelRole('${m.id}','sub')" title="設為副模型">🍊</button>
+        <button class="model-icon-btn${roles.has('fav')?' lit':''}" data-role="fav"
+          onclick="toggleModelRole('${m.id}','fav')" title="收藏">⭐</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleModelRole(modelId, role) {
+  if (!modelRoles[modelId]) modelRoles[modelId] = new Set();
+  const roles = modelRoles[modelId];
+  // main and sub are exclusive across models
+  if (role === 'main' || role === 'sub') {
+    Object.keys(modelRoles).forEach(id => {
+      if (modelRoles[id]) modelRoles[id].delete(role);
+    });
+  }
+  if (roles.has(role)) roles.delete(role);
+  else roles.add(role);
+  // Save (convert Sets to arrays)
+  const toSave = {};
+  Object.keys(modelRoles).forEach(k => { toSave[k] = [...modelRoles[k]]; });
+  localStorage.setItem('mp-model-roles', JSON.stringify(toSave));
+  renderModelPicker(document.getElementById('api-provider').value);
+}
+
+function getActiveModel(role) {
+  const provider = localStorage.getItem('mp-provider') || 'gemini';
+  const models = PROVIDER_MODELS[provider] || [];
+  for (const m of models) {
+    if (modelRoles[m.id]?.has(role)) return { provider, model: m.id };
+  }
+  // fallback to first model
+  return { provider, model: models[0]?.id };
 }
 
 function exportData(type) {
