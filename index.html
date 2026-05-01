@@ -2588,9 +2588,10 @@ const PROVIDER_MODELS = {
     { id:'gemini-2.0-flash-lite',          name:'Gemini 2.0 Flash Lite', desc:'最輕量・最省額度' },
   ],
   anthropic: [
-    { id:'claude-sonnet-4-6', name:'Claude Sonnet 4.6', desc:'最新均衡・需付費' },
-    { id:'claude-opus-4-6',   name:'Claude Opus 4.6',   desc:'旗艦・較慢・需付費' },
-    { id:'claude-haiku-4-5',  name:'Claude Haiku 4.5',  desc:'輕量快速・需付費' },
+    { id:'claude-opus-4-5-20251101',   name:'Claude Opus 4.5',   desc:'旗艦・最強・需付費' },
+    { id:'claude-sonnet-4-5-20251022', name:'Claude Sonnet 4.5', desc:'均衡效能・需付費' },
+    { id:'claude-sonnet-4-6',          name:'Claude Sonnet 4.6', desc:'最新均衡・需付費' },
+    { id:'claude-haiku-4-5-20251001',  name:'Claude Haiku 4.5',  desc:'輕量快速・需付費' },
   ],
   openai: [
     { id:'gpt-4.1-mini', name:'GPT-4.1 Mini', desc:'最新輕量・低成本' },
@@ -2688,7 +2689,8 @@ async function testApiConnection() {
 
   try {
     if (provider === 'gemini') {
-      const model = 'gemini-2.0-flash';
+      const activeModel = getActiveModel('main');
+      const model = activeModel.model || 'gemini-2.5-flash-preview-05-20';
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
         { method:'POST', headers:{'Content-Type':'application/json'},
@@ -2697,11 +2699,18 @@ async function testApiConnection() {
       );
       if (res.ok) {
         resultEl.style.color = 'var(--sage, #7E9E8A)';
-        resultEl.textContent = '✓ 連接成功！Gemini API 正常運作';
+        resultEl.textContent = '✓ 連接成功！模型：' + model;
       } else {
         const err = await res.json();
+        const msg = err.error?.message || String(res.status);
         resultEl.style.color = 'var(--rose)';
-        resultEl.textContent = '✕ 錯誤：' + (err.error?.message || res.status);
+        if (msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+          resultEl.textContent = '⚠️ 此模型免費額度已用完，請換用其他模型或等明天重置。建議改試 Gemini 2.5 Flash。';
+        } else if (msg.includes('API_KEY_INVALID') || msg.includes('invalid')) {
+          resultEl.textContent = '✕ API Key 無效，請確認是否複製完整。';
+        } else {
+          resultEl.textContent = '✕ 錯誤：' + msg.slice(0, 120);
+        }
       }
     } else {
       resultEl.style.color = 'var(--text-muted)';
