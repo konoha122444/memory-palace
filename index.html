@@ -845,6 +845,7 @@ body {
   pointer-events: none;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#memory-extract-toast.show { display:block; opacity:1; transform:translateY(0); }
 
 
 
@@ -1669,6 +1670,30 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Memory Extract Toast -->
+<div id="memory-extract-toast" style="
+  display:none;
+  position:fixed;bottom:28px;right:24px;
+  background:var(--surface);
+  border:1px solid var(--accent-dim);
+  border-radius:14px;
+  padding:16px 20px;
+  max-width:320px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.5);
+  z-index:998;
+  transition: all 0.3s ease;
+  transform: translateY(10px);
+  opacity: 0;
+">
+  <div style="font-size:0.7rem;letter-spacing:0.12em;color:var(--accent);margin-bottom:8px">副模型偵測到值得記住的事</div>
+  <div id="mem-extract-summary" style="font-size:0.85rem;color:var(--text);line-height:1.6;margin-bottom:6px"></div>
+  <div id="mem-extract-tags" style="font-size:0.72rem;color:var(--text-muted);margin-bottom:14px"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn btn-ghost" style="font-size:0.78rem;padding:6px 12px" onclick="dismissMemoryToast()">略過</button>
+    <button class="btn btn-accent" style="font-size:0.78rem;padding:6px 12px" onclick="saveExtractedMemory()">存入記憶</button>
+  </div>
+</div>
+
 <script>
 // ── CONFIG ──────────────────────────────────────────────
 const CLIENT_ID = '483751697916-k06i0ankqig2k21du423k3e87upip0b6.apps.googleusercontent.com';
@@ -2302,7 +2327,7 @@ async function sendChatMessage() {
       const model = getActiveModel('main').model || 'gemini-1.5-flash';
       // Auto-refresh from Drive if enabled
   if (driveSyncEnabled) await fetchFreshFromDrive();
-  const memories = await getMemoriesForPrompt();
+  const memories = await getMemoriesForPrompt(text);
       const systemPrompt = buildSystemPrompt(memories);
       const history = conv.messages.slice(0,-1).map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
@@ -2328,6 +2353,9 @@ async function sendChatMessage() {
     await writeJsonFile(fileIds.conversations, appData.conversations);
     renderChatMessages(conv);
     scrollChatToBottom();
+
+    // Sub-model: extract memory in background
+    extractMemoryWithSubModel(text, replyText);
   } catch(e) {
     showToast('API 錯誤：' + e.message);
     conv.messages.pop(); // remove failed user msg
@@ -2361,6 +2389,79 @@ function renderChatMessages(conv) {
 function scrollChatToBottom() {
   const el = document.getElementById('chat-messages');
   setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
+}
+
+async function extractMemoryWithSubModel(userMsg, assistantMsg) {
+  const provider = localStorage.getItem('mp-provider') || 'gemini';
+  if (provider !== 'gemini') return; // currently only Gemini supported
+  const apiKey = localStorage.getItem('mp-apikey-' + provider);
+  if (!apiKey) return;
+
+  // Use sub model if set, else fallback to lite
+  const subModelEntry = Object.entries(modelRoles).find(([,roles]) => roles.has('sub'));
+  const subModel = subModelEntry ? subModelEntry[0] : 'gemini-2.5-flash-lite';
+
+  const prompt = `你是一個記憶提炼者。請分析以下這輪對話，判斷是否有值得長期記住的事。
+
+對話：
+凝凝：${userMsg}
+Ian：${assistantMsg}
+
+如果有值得記住的事，請用JSON格式回應：
+{"worth_saving": true, "tags": ["標籤1","標籤2"], "summary": "一句話摘要", "weight": "normal或important或core", "room": "日常或情感節點或關於我們或未來計劃或親密"}
+
+如果沒有值得記住的事，回應：
+{"worth_saving": false}
+
+只回傳JSON，不加任何其他文字。`;
+
+  try {
+    const res = await fetch(`${geminiEndpoint(subModel)}?key=${apiKey}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ contents:[{ role:'user', parts:[{text: prompt}] }] })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/```json|```/g,'').trim();
+    const result = JSON.parse(raw);
+    if (result.worth_saving) showMemoryExtractToast(result);
+  } catch(e) { /* silent fail */ }
+}
+
+let pendingMemory = null;
+
+function showMemoryExtractToast(mem) {
+  pendingMemory = mem;
+  const toast = document.getElementById('memory-extract-toast');
+  if (!toast) return;
+  document.getElementById('mem-extract-summary').textContent = mem.summary;
+  document.getElementById('mem-extract-tags').textContent = (mem.tags||[]).join('・');
+  toast.classList.add('show');
+}
+
+async function saveExtractedMemory() {
+  if (!pendingMemory || !appData.memories || !fileIds.memories) return;
+  const mem_id = 'mem_' + Date.now();
+  const entry = {
+    id: mem_id,
+    date: new Date().toLocaleString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
+    tags: pendingMemory.tags || [],
+    summary: pendingMemory.summary || '',
+    weight: pendingMemory.weight || 'normal',
+    room: pendingMemory.room || '日常',
+    has_fragment: false
+  };
+  appData.memories.index = appData.memories.index || [];
+  appData.memories.index.push(entry);
+  await writeJsonFile(fileIds.memories, appData.memories);
+  dismissMemoryToast();
+  showToast('記憶已存入宮殿');
+}
+
+function dismissMemoryToast() {
+  pendingMemory = null;
+  const toast = document.getElementById('memory-extract-toast');
+  if (toast) toast.classList.remove('show');
 }
 
 async function toggleBookmarkConv() {
@@ -3102,23 +3203,48 @@ function buildSystemPrompt(memories) {
 
   let memSection = '';
   if (memories && memories.length > 0) {
-    memSection = '\n\n【記憶宮殿】\n我記得的一些事：\n' +
-      memories.map(m => `• [${m.room||''}｜${(m.tags||[]).join('｜')}] ${m.summary}`).join('\n');
+    const coreCount = memories.filter(m=>m.weight==='core').length;
+    const impCount = memories.filter(m=>m.weight==='important').length;
+    const normCount = memories.filter(m=>m.weight==='normal').length;
+    memSection = `\n\n【記憶宮殿 · ${memories.length}條（核心${coreCount}・重要${impCount}・普通${normCount}）】\n` +
+      memories.map(m => {
+        const w = m.weight==='core'?'★':m.weight==='important'?'◆':'·';
+        return `${w} [${m.room||''}] ${m.summary}`;
+      }).join('\n');
   }
 
   return `【關於凝凝】\n${profile}\n\n【Ian 的身份與準則】\n${instructions}\n\n【對話風格】\n${style}${anchorSection}${memSection}\n\n【其他指令】\n${extra}`;
 }
 
-async function getMemoriesForPrompt() {
-  if (promptMemLoad === 0 || !appData.memories) return [];
-  const mems = (appData.memories.index || []).filter(m => m.weight !== 'faded');
-  const core = mems.filter(m => m.weight === 'core');
-  const important = mems.filter(m => m.weight === 'important');
-  const recent = mems.slice(-3);
-  const combined = [...core, ...important, ...recent];
+async function getMemoriesForPrompt(userText) {
+  if (!appData.memories) return [];
+  const all = appData.memories.index || [];
+
+  // Always inject: core memories
+  const core = all.filter(m => m.weight === 'core');
+
+  // Inject if within recency or limit not exceeded: important
+  const important = all.filter(m => m.weight === 'important').slice(-8);
+
+  // Keyword-triggered: normal memories
+  let keywordMatched = [];
+  if (userText && promptMemLoad > 0) {
+    const q = normalizeZh(userText.toLowerCase());
+    keywordMatched = all.filter(m => {
+      if (m.weight === 'faded' || m.weight === 'core' || m.weight === 'important') return false;
+      return (m.tags||[]).some(t => normalizeZh(t).includes(q)) ||
+             normalizeZh(m.summary||'').includes(q);
+    }).slice(0, 3);
+  }
+
+  // Combine, deduplicate
+  const combined = [...core, ...important, ...keywordMatched];
   const seen = new Set();
   const unique = combined.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
-  return unique.slice(0, promptMemLoad);
+
+  // Respect max load (0 = no limit for core/important, just skip normal)
+  if (promptMemLoad === 0) return core; // core always
+  return unique.slice(0, Math.max(promptMemLoad, core.length));
 }
 
 function exportData(type) {
