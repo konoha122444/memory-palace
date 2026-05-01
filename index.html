@@ -2179,7 +2179,7 @@ async function sendChatMessage() {
         parts: [{ text: m.content }]
       }));
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
+        `${geminiEndpoint(model)}?key=${apiKey}`,
         { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ contents: [...history, { role:'user', parts:[{text}] }] })
         }
@@ -2673,6 +2673,11 @@ function toggleModelRole(modelId, role) {
 }
 
 // ── API TEST + USAGE ─────────────────────────────────────
+function geminiEndpoint(model) {
+  // preview models require v1beta, stable models use v1
+  const ver = model.includes('preview') ? 'v1beta' : 'v1';
+  return `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent`;
+}
 async function testApiConnection() {
   const provider = document.getElementById('api-provider').value;
   const apiKey = document.getElementById('api-key-input').value.trim();
@@ -2692,7 +2697,7 @@ async function testApiConnection() {
       const activeModel = getActiveModel('main');
       const model = activeModel.model || 'gemini-2.5-flash-preview-05-20';
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
+        `${geminiEndpoint(model)}?key=${apiKey}`,
         { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ contents:[{ role:'user', parts:[{text:'hi'}] }] })
         }
