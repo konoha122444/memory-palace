@@ -1166,16 +1166,30 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">對話日期</label>
-      <input class="form-input" type="date" id="import-date">
-    </div>
-    <div class="form-group">
-      <label class="form-label">貼上對話內容（純文字或 JSON）</label>
-      <textarea class="form-textarea" id="import-content" style="min-height:160px;font-family:'DM Mono',monospace;font-size:0.78rem" placeholder="把對話內容貼在這裡..."></textarea>
+      <label class="form-label">上傳 JSON 檔案</label>
+      <div id="upload-area" style="
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 28px;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        letter-spacing: 0.06em;
+      " onclick="document.getElementById('import-file').click()"
+         ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+         ondragleave="this.style.borderColor='var(--border)'"
+         ondrop="handleFileDrop(event)">
+        <div style="font-size:1.8rem;margin-bottom:10px;opacity:0.4">📄</div>
+        <div>點擊或拖曳 JSON 檔案至此</div>
+        <div id="upload-filename" style="margin-top:8px;color:var(--accent);font-size:0.78rem"></div>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleFileSelect(this)">
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('import-modal')">取消</button>
-      <button class="btn btn-accent" onclick="importConversation()">匯入</button>
+      <button class="btn btn-accent" id="import-btn" onclick="importConversation()" disabled style="opacity:0.5">匯入</button>
     </div>
   </div>
 </div>
@@ -1752,53 +1766,121 @@ async function deleteConv() {
   showToast('對話記錄已刪除');
 }
 
+let importFileData = null;
+
 function openImportModal() {
   document.getElementById('import-title').value = '';
-  document.getElementById('import-content').value = '';
-  document.getElementById('import-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('import-file').value = '';
+  document.getElementById('upload-filename').textContent = '';
+  document.getElementById('import-btn').disabled = true;
+  document.getElementById('import-btn').style.opacity = '0.5';
+  document.getElementById('upload-area').style.borderColor = 'var(--border)';
+  importFileData = null;
   openModal('import-modal');
 }
 
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (file) readImportFile(file);
+}
+
+function handleFileDrop(event) {
+  event.preventDefault();
+  document.getElementById('upload-area').style.borderColor = 'var(--border)';
+  const file = event.dataTransfer.files[0];
+  if (file && file.name.endsWith('.json')) readImportFile(file);
+  else showToast('請上傳 .json 格式的檔案');
+}
+
+function readImportFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      importFileData = JSON.parse(e.target.result);
+      document.getElementById('upload-filename').textContent = '✓ ' + file.name;
+      document.getElementById('import-btn').disabled = false;
+      document.getElementById('import-btn').style.opacity = '1';
+      document.getElementById('upload-area').style.borderColor = 'var(--accent-dim)';
+      // Auto-detect title from JSON if available
+      const titleEl = document.getElementById('import-title');
+      if (!titleEl.value) {
+        const guessed = importFileData.name || importFileData.title || importFileData.conversation_id || '';
+        if (guessed) titleEl.value = guessed;
+      }
+    } catch {
+      showToast('JSON 格式有誤，請確認檔案內容');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function extractDateFromJson(data) {
+  // Try various Claude/Gemini export date fields
+  const candidates = [
+    data.created_at, data.create_time, data.date,
+    data.updated_at, data.update_time,
+    data.chat_messages?.[0]?.created_at,
+    data.messages?.[0]?.created_at,
+    data.messages?.[0]?.timestamp,
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    const d = new Date(c);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+  }
+  return new Date().toISOString().split('T')[0];
+}
+
 async function importConversation() {
+  if (!importFileData) return;
   const title = document.getElementById('import-title').value.trim() || '無題對話';
   const source = document.getElementById('import-source').value;
-  const date = document.getElementById('import-date').value;
-  const raw = document.getElementById('import-content').value.trim();
-  if (!raw) return;
+  const data = importFileData;
 
+  // Auto-detect date from JSON
+  const date = extractDateFromJson(data);
+
+  // Parse messages from various export formats
   let messages = [];
-  // Try parse as Claude export JSON
-  try {
-    const parsed = JSON.parse(raw);
-    // Claude export format
-    if (parsed.chat_messages) {
-      messages = parsed.chat_messages.map(m => ({ role: m.sender === 'human' ? 'user' : 'assistant', content: m.text || '' }));
-    } else if (Array.isArray(parsed)) {
-      messages = parsed.map(m => ({ role: m.role || 'user', content: m.content || m.text || '' }));
-    } else if (parsed.messages) {
-      messages = parsed.messages;
-    }
-  } catch {
-    // Plain text: alternate lines as user/assistant
-    const lines = raw.split('\n').filter(l => l.trim());
-    lines.forEach((line, i) => {
-      if (line.startsWith('凝凝：') || line.startsWith('Human:') || line.startsWith('User:')) {
-        messages.push({ role: 'user', content: line.replace(/^(凝凝：|Human:|User:)/, '').trim() });
-      } else if (line.startsWith('Ian：') || line.startsWith('Assistant:') || line.startsWith('Claude:')) {
-        messages.push({ role: 'assistant', content: line.replace(/^(Ian：|Assistant:|Claude:)/, '').trim() });
-      } else {
-        messages.push({ role: i % 2 === 0 ? 'user' : 'assistant', content: line });
-      }
-    });
+  if (data.chat_messages) {
+    // Claude.ai export format
+    messages = data.chat_messages.map(m => ({
+      role: m.sender === 'human' ? 'user' : 'assistant',
+      content: typeof m.content === 'string' ? m.content :
+               m.content?.map?.(c => c.text || '').join('') || m.text || ''
+    }));
+  } else if (data.mapping) {
+    // ChatGPT-style export
+    const nodes = Object.values(data.mapping).filter(n => n.message?.content?.parts);
+    nodes.sort((a,b) => (a.message.create_time||0)-(b.message.create_time||0));
+    messages = nodes.map(n => ({
+      role: n.message.author.role === 'user' ? 'user' : 'assistant',
+      content: n.message.content.parts.join('')
+    })).filter(m => m.content.trim());
+  } else if (Array.isArray(data)) {
+    messages = data.map(m => ({ role: m.role || 'user', content: m.content || m.text || '' }));
+  } else if (data.messages) {
+    messages = data.messages.map(m => ({ role: m.role || 'user', content: m.content || m.text || '' }));
   }
 
   const conv = { id: 'conv_' + Date.now(), title, source, date, bookmarked: false, messages };
   if (!appData.conversations.conversations) appData.conversations.conversations = [];
   appData.conversations.conversations.push(conv);
   await writeJsonFile(fileIds.conversations, appData.conversations);
+
+  // Auto-mark calendar on that date
+  if (!appData.calendar.events) appData.calendar.events = {};
+  if (!appData.calendar.events[date]) appData.calendar.events[date] = { notes: '' };
+  const existing = appData.calendar.events[date].notes || '';
+  const newNote = existing ? existing + '\n· ' + title : '· ' + title;
+  appData.calendar.events[date].notes = newNote;
+  await writeJsonFile(fileIds.calendar, appData.calendar);
+
   closeModal('import-modal');
   renderConversations();
-  showToast('對話記錄已匯入');
+  showToast('已匯入，並標註於行事曆 ' + date);
 }
 
 // ── CALENDAR ─────────────────────────────────────────────
