@@ -1328,6 +1328,49 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
               style="margin-bottom:6px"
               oninput="saveApiKey()">
             <div id="api-key-status" style="font-size:0.72rem;color:var(--text-muted);letter-spacing:0.06em"></div>
+            <button class="btn" style="margin-top:10px;font-size:0.78rem" onclick="testApiConnection()">⚡ 測試連接</button>
+            <div id="api-test-result" style="margin-top:8px;font-size:0.78rem;letter-spacing:0.06em;line-height:1.6;display:none"></div>
+          </div>
+        </div>
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:12px">
+          <div style="width:100%">
+            <div class="settings-row-label" style="margin-bottom:4px">用量統計</div>
+            <div class="settings-row-desc">本月累計呼叫次數與預估用量</div>
+          </div>
+          <div style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:0.82rem">
+              <span style="color:var(--text-soft)">本月呼叫次數</span>
+              <span id="usage-count" style="color:var(--accent);font-family:'DM Mono',monospace">0 次</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:14px;font-size:0.82rem">
+              <span style="color:var(--text-soft)">預估 Token 用量</span>
+              <span id="usage-tokens" style="color:var(--accent);font-family:'DM Mono',monospace">0</span>
+            </div>
+            <div style="background:var(--surface-3);border-radius:6px;height:6px;overflow:hidden;margin-bottom:10px">
+              <div id="usage-bar" style="height:100%;background:var(--accent);border-radius:6px;width:0%;transition:width 0.4s ease"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:0.72rem;color:var(--text-muted)" id="usage-budget-label">預算上限：未設定</span>
+              <button class="btn btn-ghost" style="font-size:0.72rem;padding:4px 8px" onclick="resetUsage()">重置</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">預算限制</div>
+            <div class="settings-row-desc">超過上限後停止 API 呼叫</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input class="form-input" id="budget-input" type="number" min="1" placeholder="次數上限"
+              style="width:90px;text-align:center;padding:6px 10px"
+              oninput="saveBudget()">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem;color:var(--text-soft)">
+              <div id="budget-toggle" onclick="toggleBudget()"
+                style="width:36px;height:20px;border-radius:10px;background:var(--surface-3);border:1px solid var(--border);cursor:pointer;position:relative;transition:background 0.2s">
+                <div id="budget-toggle-knob" style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text-muted);transition:all 0.2s"></div>
+              </div>
+              開啟
+            </label>
           </div>
         </div>
         <div class="settings-row">
