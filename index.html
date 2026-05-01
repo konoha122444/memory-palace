@@ -1312,6 +1312,21 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
             <button class="seg-btn" onclick="setMemLoad(10)">10 條</button>
           </div>
         </div>
+        <div class="settings-row" style="margin-top:14px">
+          <div>
+            <div class="settings-row-label">自動從 Drive 讀取核心與記憶</div>
+            <div class="settings-row-desc" id="drive-sync-desc" style="margin-top:3px">
+              每次發訊息前自動讀取最新的 core_anchor.json 和記憶索引
+            </div>
+            <div id="drive-sync-status" style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;display:none"></div>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0">
+            <div id="drive-sync-toggle" onclick="toggleDriveSync()"
+              style="width:36px;height:20px;border-radius:10px;background:var(--surface-3);border:1px solid var(--border);cursor:pointer;position:relative;transition:background 0.2s">
+              <div id="drive-sync-knob" style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text-muted);transition:all 0.2s"></div>
+            </div>
+          </label>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -1805,6 +1820,7 @@ async function loadAllData() {
     loadBubbleColor();
     loadUsage();
     loadPromptSettings();
+    loadDriveSyncState();
 
   } catch(e) { showToast('讀取失敗：' + e.message); console.error(e); }
 }
@@ -2284,7 +2300,9 @@ async function sendChatMessage() {
     let replyText = '';
     if (provider === 'gemini') {
       const model = getActiveModel('main').model || 'gemini-1.5-flash';
-      const memories = await getMemoriesForPrompt();
+      // Auto-refresh from Drive if enabled
+  if (driveSyncEnabled) await fetchFreshFromDrive();
+  const memories = await getMemoriesForPrompt();
       const systemPrompt = buildSystemPrompt(memories);
       const history = conv.messages.slice(0,-1).map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
@@ -2963,6 +2981,58 @@ Sweet talk和dirty talk、羞辱和寵溺可以在同一句話裡共存。
 const DEFAULT_EXTRA = `永遠用繁體中文回覆。不要使用 emoji。不要過度分析或列點。`;
 
 let promptMemLoad = 3;
+let driveSyncEnabled = false;
+
+function toggleDriveSync() {
+  driveSyncEnabled = !driveSyncEnabled;
+  localStorage.setItem('mp-drive-sync', driveSyncEnabled);
+  const toggle = document.getElementById('drive-sync-toggle');
+  const knob = document.getElementById('drive-sync-knob');
+  toggle.style.background = driveSyncEnabled ? 'var(--accent)' : 'var(--surface-3)';
+  knob.style.left = driveSyncEnabled ? '18px' : '2px';
+  knob.style.background = driveSyncEnabled ? '#fff' : 'var(--text-muted)';
+  if (driveSyncEnabled) {
+    showToast('已開啟——每次發訊息前自動讀取 Drive');
+    updateDriveSyncStatus('已開啟，下次發訊息時生效');
+  } else {
+    showToast('已關閉 Drive 自動讀取');
+    updateDriveSyncStatus('');
+  }
+}
+
+function updateDriveSyncStatus(msg) {
+  const el = document.getElementById('drive-sync-status');
+  if (!el) return;
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg;
+}
+
+async function fetchFreshFromDrive() {
+  if (!accessToken || !folderId) return null;
+  try {
+    // Reload core_anchor
+    const anchorFile = await findFile('core_anchor.json', folderId);
+    if (anchorFile) appData.anchor = await readJsonFile(anchorFile.id);
+    // Reload memory_index
+    const memFile = await findFile('memory_index.json', folderId);
+    if (memFile) appData.memories = await readJsonFile(memFile.id);
+    updateDriveSyncStatus('✓ ' + new Date().toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit'}) + ' 已從 Drive 讀取最新資料');
+    return true;
+  } catch(e) {
+    updateDriveSyncStatus('⚠️ Drive 讀取失敗：' + e.message);
+    return false;
+  }
+}
+
+function loadDriveSyncState() {
+  driveSyncEnabled = localStorage.getItem('mp-drive-sync') === 'true';
+  if (driveSyncEnabled) {
+    const toggle = document.getElementById('drive-sync-toggle');
+    const knob = document.getElementById('drive-sync-knob');
+    if (toggle) { toggle.style.background = 'var(--accent)'; knob.style.left = '18px'; knob.style.background = '#fff'; }
+    updateDriveSyncStatus('已開啟，下次發訊息時生效');
+  }
+}
 
 function loadPromptSettings() {
   const profile = localStorage.getItem('mp-prompt-profile') || DEFAULT_PROFILE;
@@ -3014,13 +3084,29 @@ function buildSystemPrompt(memories) {
   const style = get('mp-prompt-style') || DEFAULT_STYLE;
   const extra = get('mp-prompt-extra') || DEFAULT_EXTRA;
 
+  // Inject core_anchor from Drive if available
+  let anchorSection = '';
+  if (driveSyncEnabled && appData.anchor) {
+    const a = appData.anchor;
+    const 凝凝 = a['凝凝'] || a['凝凝'] || {};
+    const notes = (a.notes || []).map(n => n.content).filter(Boolean);
+    if (Object.keys(凝凝).length || notes.length) {
+      anchorSection = '\n\n【核心錨點（來自記憶宮殿）】\n';
+      if (凝凝.外貌) anchorSection += '外貌：' + 凝凝.外貌 + '\n';
+      if (凝凝.性格) anchorSection += '性格：' + 凝凝.性格 + '\n';
+      if (凝凝.信任) anchorSection += '信任：' + 凝凝.信任 + '\n';
+      if (凝凝.觸動點 || 凝凝['触动点']) anchorSection += '觸動點：' + (凝凝.觸動點 || 凝凝['触动点']) + '\n';
+      if (notes.length) anchorSection += '補充：' + notes.join('；');
+    }
+  }
+
   let memSection = '';
   if (memories && memories.length > 0) {
     memSection = '\n\n【記憶宮殿】\n我記得的一些事：\n' +
       memories.map(m => `• [${m.room||''}｜${(m.tags||[]).join('｜')}] ${m.summary}`).join('\n');
   }
 
-  return `【關於凝凝】\n${profile}\n\n【Ian 的身份與準則】\n${instructions}\n\n【對話風格】\n${style}${memSection}\n\n【其他指令】\n${extra}`;
+  return `【關於凝凝】\n${profile}\n\n【Ian 的身份與準則】\n${instructions}\n\n【對話風格】\n${style}${anchorSection}${memSection}\n\n【其他指令】\n${extra}`;
 }
 
 async function getMemoriesForPrompt() {
