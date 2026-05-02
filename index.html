@@ -2204,6 +2204,18 @@ async function deleteNote(id) {
 
 // ── CONVERSATIONS ─────────────────────────────────────────
 let currentConvTab = 'all';
+let multiSelectMode = false;
+
+function toggleMultiSelect() {
+  multiSelectMode = !multiSelectMode;
+  const btn = document.getElementById('multiselect-btn');
+  if (btn) {
+    btn.style.background = multiSelectMode ? 'var(--accent-glow)' : '';
+    btn.style.borderColor = multiSelectMode ? 'var(--accent)' : '';
+    btn.style.color = multiSelectMode ? 'var(--accent)' : '';
+  }
+  renderConversations();
+}
 
 function switchConvTab(tab) {
   currentConvTab = tab;
@@ -2240,7 +2252,7 @@ function renderConversations() {
   const sorted = [...pool].sort((a,b) => (b.date||'').localeCompare(a.date||''));
   const isTrash = currentConvTab === 'trash';
   const isAll = currentConvTab === 'all';
-  const showSelect = isTrash || isAll;
+  const showSelect = multiSelectMode && (isTrash || isAll);
 
   let toolbar = '';
   if (showSelect) {
@@ -2261,18 +2273,17 @@ function renderConversations() {
 
   c.innerHTML = toolbar + sorted.map(conv => `
     <div class="conv-item" id="conv-item-${conv.id}"
-      onclick="${showSelect ? `toggleConvSelect('${conv.id}',event)` : `openConv('${conv.id}')`}"
+      onclick="multiSelectMode ? toggleConvSelect(this.dataset.id, event) : openConv(this.dataset.id)" data-id="${conv.id}"
       style="cursor:pointer">
       ${showSelect ? `<input type="checkbox" class="conv-checkbox" data-id="${conv.id}"
         onclick="event.stopPropagation();toggleConvSelect('${conv.id}',null)"
         style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">` : ''}
       <span class="conv-source">${conv.source || 'claude'}</span>
-      <div class="conv-info" onclick="${showSelect ? '' : `openConv('${conv.id}')`}" style="${showSelect?'':'cursor:pointer'}">
+      <div class="conv-info">
         <div class="conv-title">${escHtml(conv.title)}</div>
         <div class="conv-date">${conv.date||''}</div>
       </div>
       ${conv.bookmarked ? '<span class="conv-bookmark">★</span>' : ''}
-      ${!showSelect ? `<button class="btn btn-ghost" style="font-size:0.8rem;padding:4px 8px" onclick="event.stopPropagation();openConv('${conv.id}')">開啟 →</button>` : ''}
     </div>
   `).join('');
 }
