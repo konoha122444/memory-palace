@@ -1141,7 +1141,7 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9z"/><path d="M12 8v4l3 3"/></svg>
     </button>
     <button class="nav-btn" data-tab="messages" onclick="switchTab('messages')" title="留言板">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h-8a2 2 0 01-2-2V6a2 2 0 012-2h16a2 2 0 012 2v6"/><path d="M2 10h20"/><path d="M17 17l2 2 4-4"/></svg>
     </button>
     <button class="nav-btn" data-tab="conversations" onclick="switchTab('conversations')" title="對話記錄">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -1199,6 +1199,7 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
         <div class="page-header">
           <div class="page-title">對話記錄</div>
           <div style="display:flex;gap:8px">
+            <button class="btn" id="multiselect-btn" onclick="toggleMultiSelect()" style="font-size:0.8rem">☑ 多選</button>
             <button class="btn" onclick="openNewConvModal()">＋ 新增對話</button>
             <button class="btn btn-accent" onclick="openImportModal()">↑ 匯入</button>
           </div>
