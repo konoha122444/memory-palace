@@ -1500,7 +1500,7 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
         </div>
         <div class="settings-row">
           <div>
-            <div class="settings-row-label">Ian 對話框顏色</div>
+            <div class="settings-row-label" id="bubble-color-label">Ian 對話框顏色</div>
             <div class="settings-row-desc">調整 Ian 回覆的背景色</div>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
@@ -3009,22 +3009,30 @@ function setTheme(theme) {
 }
 
 function setBubbleColor(bg, text) {
-  document.documentElement.style.setProperty('--bubble-assistant-bg', bg);
-  document.documentElement.style.setProperty('--bubble-assistant-text', text);
-  // auto pick border as slightly darker version
-  document.documentElement.style.setProperty('--bubble-assistant-border', bg === '#FFFFFF' ? '#E0E0E0' : bg);
+  const border = bg === '#FFFFFF' ? '#E0E0E0' : bg;
+  applyBubbleColor(bg, text, border);
   localStorage.setItem('mp-bubble-bg', bg);
   localStorage.setItem('mp-bubble-text', text);
   showToast('對話框顏色已更新');
+}
+
+function applyBubbleColor(bg, text, border) {
+  // Use a dedicated style tag to override theme variables reliably
+  let el = document.getElementById('bubble-color-override');
+  if (!el) {
+    el = document.createElement('style');
+    el.id = 'bubble-color-override';
+    document.head.appendChild(el);
+  }
+  el.textContent = `.bubble.assistant { background: ${bg} !important; color: ${text} !important; border-color: ${border} !important; }`;
 }
 
 function loadBubbleColor() {
   const bg = localStorage.getItem('mp-bubble-bg');
   const text = localStorage.getItem('mp-bubble-text');
   if (bg) {
-    document.documentElement.style.setProperty('--bubble-assistant-bg', bg);
-    document.documentElement.style.setProperty('--bubble-assistant-text', text || '#333');
-    document.documentElement.style.setProperty('--bubble-assistant-border', bg === '#FFFFFF' ? '#E0E0E0' : bg);
+    const border = bg === '#FFFFFF' ? '#E0E0E0' : bg;
+    applyBubbleColor(bg, text || '#333', border);
   }
 }
 
@@ -3351,6 +3359,8 @@ function loadPromptSettings() {
   set('prompt-extra', extra);
   set('prompt-user-name', localStorage.getItem('mp-user-name') || '凝凝');
   set('prompt-ai-name', localStorage.getItem('mp-ai-name') || 'Ian');
+  const bubbleLabel = document.getElementById('bubble-color-label');
+  if (bubbleLabel) bubbleLabel.textContent = (localStorage.getItem('mp-ai-name') || 'Ian') + ' 對話框顏色';
 
   // Mark active memload button
   [0,3,5,10].forEach(n => {
@@ -3373,6 +3383,8 @@ function saveNameSettings() {
   const aiName = document.getElementById('prompt-ai-name')?.value.trim() || 'Ian';
   localStorage.setItem('mp-user-name', userName);
   localStorage.setItem('mp-ai-name', aiName);
+  const label = document.getElementById('bubble-color-label');
+  if (label) label.textContent = aiName + ' 對話框顏色';
 }
 
 function getUserName() { return localStorage.getItem('mp-user-name') || '凝凝'; }
