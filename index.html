@@ -3357,14 +3357,16 @@ function loadPromptSettings() {
   set('prompt-instructions', instructions);
   set('prompt-style', style);
   set('prompt-extra', extra);
-  set('prompt-user-name', localStorage.getItem('mp-user-name') || '凝凝');
-  set('prompt-ai-name', localStorage.getItem('mp-ai-name') || 'Ian');
+  const savedUserName = localStorage.getItem('mp-user-name') || '凝凝';
+  const savedAiName = localStorage.getItem('mp-ai-name') || 'Ian';
+  set('prompt-user-name', savedUserName);
+  set('prompt-ai-name', savedAiName);
   const bubbleLabel = document.getElementById('bubble-color-label');
-  if (bubbleLabel) bubbleLabel.textContent = aiName + ' 對話框顏色';
+  if (bubbleLabel) bubbleLabel.textContent = savedAiName + ' 對話框顏色';
   const noteAiBtn = document.getElementById('note-btn-ai');
-  if (noteAiBtn) noteAiBtn.textContent = '＋ ' + aiName + '留言';
+  if (noteAiBtn) noteAiBtn.textContent = '＋ ' + savedAiName + '留言';
   const noteUserBtn = document.getElementById('note-btn-user');
-  if (noteUserBtn) noteUserBtn.textContent = '＋ ' + userName + '留言';
+  if (noteUserBtn) noteUserBtn.textContent = '＋ ' + savedUserName + '留言';
 
   // Mark active memload button
   [0,3,5,10].forEach(n => {
