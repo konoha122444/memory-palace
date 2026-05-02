@@ -2754,7 +2754,8 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
-    const hasEvent = !!events[dateStr];
+    const hasEvent = !!events[dateStr] ||
+      (appData.conversations?.conversations||[]).some(c => c.date === dateStr);
     const isSelected = calState.selectedDate === dateStr;
     const cls = ['cal-day', isToday?'today':'', hasEvent?'has-event':'', isSelected?'selected':''].filter(Boolean).join(' ');
     html += `<div class="${cls}" onclick="selectCalDay('${dateStr}')">${d}</div>`;
@@ -2774,14 +2775,27 @@ function renderCalendarSide() {
   document.getElementById('cal-side-date').textContent = sy + '年' + parseInt(sm) + '月' + parseInt(sd) + '日';
   document.getElementById('cal-note-input').value = ev.notes || '';
 
-  // Render conv refs
+  // Build conv list: combine convRefs + scan all convs by date
   const refsEl = document.getElementById('cal-conv-refs');
-  const refs = ev.convRefs || [];
   if (refsEl) {
-    if (refs.length) {
+    const allConvs = [
+      ...(appData.conversations?.conversations || []),
+      ...(appData.conversations?.trash || [])
+    ];
+    // Collect from convRefs
+    const fromRefs = (ev.convRefs || []);
+    const refIds = new Set(fromRefs.map(r => r.id));
+    // Also scan convs whose date matches
+    const fromScan = allConvs.filter(c => c.date === dateStr && !refIds.has(c.id));
+    const combined = [
+      ...fromRefs.map(r => ({ id: r.id, title: r.title })),
+      ...fromScan.map(c => ({ id: c.id, title: c.title }))
+    ];
+
+    if (combined.length) {
       refsEl.style.display = 'block';
       refsEl.innerHTML = '<div style="font-size:0.7rem;letter-spacing:0.12em;color:var(--accent);margin-bottom:8px">對話記錄</div>' +
-        refs.map(r => `
+        combined.map(r => `
           <div onclick="gotoConvFromCal('${r.id}')" style="
             display:flex;align-items:center;gap:10px;
             padding:9px 12px;margin-bottom:6px;
@@ -2789,7 +2803,7 @@ function renderCalendarSide() {
             border-radius:8px;cursor:pointer;transition:border-color 0.18s;
           " onmouseover="this.style.borderColor='var(--accent-dim)'" onmouseout="this.style.borderColor='var(--border)'">
             <span style="color:var(--text-muted);font-size:0.85rem">💬</span>
-            <span style="font-size:0.85rem;color:var(--text)">${escHtml(r.title)}</span>
+            <span style="font-size:0.85rem;color:var(--text-soft)">${escHtml(r.title)}</span>
             <span style="margin-left:auto;font-size:0.72rem;color:var(--text-muted)">→</span>
           </div>`).join('');
     } else {
