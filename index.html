@@ -2238,16 +2238,104 @@ function renderConversations() {
   }
 
   const sorted = [...pool].sort((a,b) => (b.date||'').localeCompare(a.date||''));
-  c.innerHTML = sorted.map(conv => `
-    <div class="conv-item" onclick="openConv('${conv.id}')">
+  const isTrash = currentConvTab === 'trash';
+  const isAll = currentConvTab === 'all';
+  const showSelect = isTrash || isAll;
+
+  let toolbar = '';
+  if (showSelect) {
+    const actionBtn = isTrash
+      ? `<button class="btn" style="font-size:0.75rem;color:var(--accent)" onclick="restoreSelectedConvs()">還原選取</button>
+         <button class="btn" style="font-size:0.75rem;color:var(--rose)" onclick="deleteSelectedConvs()">永久刪除選取</button>`
+      : `<button class="btn" style="font-size:0.75rem;color:var(--rose)" onclick="trashSelectedConvs()">移至回收站</button>`;
+    toolbar = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;color:var(--text-soft)">
+        <input type="checkbox" id="conv-select-all" onchange="toggleSelectAllConvs(this.checked)"
+          style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer">
+        全選
+      </label>
+      <span style="color:var(--text-muted);font-size:0.78rem" id="conv-selected-count"></span>
+      <div style="margin-left:auto;display:flex;gap:6px">${actionBtn}</div>
+    </div>`;
+  }
+
+  c.innerHTML = toolbar + sorted.map(conv => `
+    <div class="conv-item" id="conv-item-${conv.id}"
+      onclick="${showSelect ? `toggleConvSelect('${conv.id}',event)` : `openConv('${conv.id}')`}"
+      style="cursor:pointer">
+      ${showSelect ? `<input type="checkbox" class="conv-checkbox" data-id="${conv.id}"
+        onclick="event.stopPropagation();toggleConvSelect('${conv.id}',null)"
+        style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0">` : ''}
       <span class="conv-source">${conv.source || 'claude'}</span>
-      <div class="conv-info">
+      <div class="conv-info" onclick="${showSelect ? '' : `openConv('${conv.id}')`}" style="${showSelect?'':'cursor:pointer'}">
         <div class="conv-title">${escHtml(conv.title)}</div>
-        <div class="conv-date">${conv.date}${conv.trashed ? ' <span class="trash-indicator">· 回收站</span>' : ''}</div>
+        <div class="conv-date">${conv.date||''}</div>
       </div>
       ${conv.bookmarked ? '<span class="conv-bookmark">★</span>' : ''}
+      ${!showSelect ? `<button class="btn btn-ghost" style="font-size:0.8rem;padding:4px 8px" onclick="event.stopPropagation();openConv('${conv.id}')">開啟 →</button>` : ''}
     </div>
   `).join('');
+}
+
+function toggleConvSelect(id, event) {
+  const cb = document.querySelector(`.conv-checkbox[data-id="${id}"]`);
+  if (!cb) return;
+  if (!event || event.target !== cb) cb.checked = !cb.checked;
+  updateConvSelectionUI();
+}
+
+function toggleSelectAllConvs(checked) {
+  document.querySelectorAll('.conv-checkbox').forEach(cb => cb.checked = checked);
+  updateConvSelectionUI();
+}
+
+function updateConvSelectionUI() {
+  const all = document.querySelectorAll('.conv-checkbox');
+  const selected = document.querySelectorAll('.conv-checkbox:checked');
+  const selAll = document.getElementById('conv-select-all');
+  const countEl = document.getElementById('conv-selected-count');
+  if (selAll) selAll.checked = all.length > 0 && selected.length === all.length;
+  if (countEl) countEl.textContent = selected.length ? `已選 ${selected.length} 個` : '';
+  all.forEach(cb => {
+    const item = document.getElementById('conv-item-' + cb.getAttribute('data-id'));
+    if (item) item.style.borderColor = cb.checked ? 'var(--accent-dim)' : '';
+  });
+}
+
+function getSelectedConvIds() {
+  return Array.from(document.querySelectorAll('.conv-checkbox:checked')).map(cb => cb.getAttribute('data-id'));
+}
+
+async function trashSelectedConvs() {
+  const ids = getSelectedConvIds();
+  if (!ids.length) { showToast('請先選取要移除的對話'); return; }
+  appData.conversations.conversations.forEach(c => {
+    if (ids.includes(c.id)) c.trashed = true;
+  });
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  renderConversations();
+  showToast(`已將 ${ids.length} 段對話移至回收站`);
+}
+
+async function restoreSelectedConvs() {
+  const ids = getSelectedConvIds();
+  if (!ids.length) { showToast('請先選取要還原的對話'); return; }
+  appData.conversations.conversations.forEach(c => {
+    if (ids.includes(c.id)) c.trashed = false;
+  });
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  renderConversations();
+  showToast(`已還原 ${ids.length} 段對話`);
+}
+
+async function deleteSelectedConvs() {
+  const ids = getSelectedConvIds();
+  if (!ids.length) { showToast('請先選取要刪除的對話'); return; }
+  if (!confirm(`確定要永久刪除選取的 ${ids.length} 段對話嗎？此操作無法還原。`)) return;
+  appData.conversations.conversations = appData.conversations.conversations.filter(c => !ids.includes(c.id));
+  await writeJsonFile(fileIds.conversations, appData.conversations);
+  renderConversations();
+  showToast(`已永久刪除 ${ids.length} 段對話`);
 }
 
 function openConv(id, tab) {
@@ -2753,8 +2841,9 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
-    const hasEvent = !!events[dateStr] ||
-      (appData.conversations?.conversations||[]).some(c => c.date === dateStr);
+    const activeConvs = (appData.conversations?.conversations||[]).filter(c => !c.trashed);
+    const hasEvent = (events[dateStr] && (events[dateStr].notes?.trim() || (events[dateStr].convRefs||[]).length > 0)) ||
+      activeConvs.some(c => c.date === dateStr);
     const isSelected = calState.selectedDate === dateStr;
     const cls = ['cal-day', isToday?'today':'', hasEvent?'has-event':'', isSelected?'selected':''].filter(Boolean).join(' ');
     html += `<div class="${cls}" onclick="selectCalDay('${dateStr}')">${d}</div>`;
@@ -2777,10 +2866,7 @@ function renderCalendarSide() {
   // Build conv list: combine convRefs + scan all convs by date
   const refsEl = document.getElementById('cal-conv-refs');
   if (refsEl) {
-    const allConvs = [
-      ...(appData.conversations?.conversations || []),
-      ...(appData.conversations?.trash || [])
-    ];
+    const allConvs = (appData.conversations?.conversations || []).filter(c => !c.trashed);
     // Collect from convRefs
     const fromRefs = (ev.convRefs || []);
     const refIds = new Set(fromRefs.map(r => r.id));
