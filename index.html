@@ -1307,10 +1307,10 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
         <div class="settings-row">
           <div class="settings-row-label">自動載入記憶條數</div>
           <div class="seg-control">
-            <button class="seg-btn" onclick="setMemLoad(0)">不載入</button>
-            <button class="seg-btn active" id="memload-3" onclick="setMemLoad(3)">3 條</button>
-            <button class="seg-btn" onclick="setMemLoad(5)">5 條</button>
-            <button class="seg-btn" onclick="setMemLoad(10)">10 條</button>
+            <button class="seg-btn" id="memload-0" onclick="setMemLoad(0)">不載入<br><span style="font-size:0.62rem;opacity:0.7">只帶核心</span></button>
+            <button class="seg-btn active" id="memload-3" onclick="setMemLoad(3)">3 條<br><span style="font-size:0.62rem;opacity:0.7">核心＋近期重要</span></button>
+            <button class="seg-btn" id="memload-5" onclick="setMemLoad(5)">5 條<br><span style="font-size:0.62rem;opacity:0.7">核心＋更多重要</span></button>
+            <button class="seg-btn" id="memload-10" onclick="setMemLoad(10)">10 條<br><span style="font-size:0.62rem;opacity:0.7">核心＋全部重要</span></button>
           </div>
         </div>
         <div class="settings-row" style="margin-top:14px">
