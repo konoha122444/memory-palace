@@ -2723,8 +2723,7 @@ async function importConversation() {
     appData.conversations.conversations.push(conv);
     // Mark calendar
     if (!appData.calendar.events[conv.date]) appData.calendar.events[conv.date] = { notes: '' };
-    const ex = appData.calendar.events[conv.date].notes || '';
-    appData.calendar.events[conv.date].notes = ex ? ex + '\n· ' + conv.title : '· ' + conv.title;
+
     added++;
   });
 
