@@ -1186,8 +1186,8 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
       <div class="page-header">
         <div class="page-title">留言板</div>
         <div class="flex gap-8">
-          <button class="btn" onclick="openNoteModal('凝凝')">＋ 凝凝留言</button>
-          <button class="btn btn-accent" onclick="openNoteModal('Ian')">＋ Ian留言</button>
+          <button class="btn" id="note-btn-user" onclick="openNoteModal(getUserName())">＋ 凝凝留言</button>
+          <button class="btn btn-accent" id="note-btn-ai" onclick="openNoteModal(getAiName())">＋ Ian留言</button>
         </div>
       </div>
       <div class="notes-grid" id="notes-container"></div>
@@ -3360,7 +3360,11 @@ function loadPromptSettings() {
   set('prompt-user-name', localStorage.getItem('mp-user-name') || '凝凝');
   set('prompt-ai-name', localStorage.getItem('mp-ai-name') || 'Ian');
   const bubbleLabel = document.getElementById('bubble-color-label');
-  if (bubbleLabel) bubbleLabel.textContent = (localStorage.getItem('mp-ai-name') || 'Ian') + ' 對話框顏色';
+  if (bubbleLabel) bubbleLabel.textContent = aiName + ' 對話框顏色';
+  const noteAiBtn = document.getElementById('note-btn-ai');
+  if (noteAiBtn) noteAiBtn.textContent = '＋ ' + aiName + '留言';
+  const noteUserBtn = document.getElementById('note-btn-user');
+  if (noteUserBtn) noteUserBtn.textContent = '＋ ' + userName + '留言';
 
   // Mark active memload button
   [0,3,5,10].forEach(n => {
