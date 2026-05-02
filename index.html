@@ -3220,31 +3220,38 @@ async function getMemoriesForPrompt(userText) {
   if (!appData.memories) return [];
   const all = appData.memories.index || [];
 
-  // Always inject: core memories
+  // core: always inject, never count toward limit
   const core = all.filter(m => m.weight === 'core');
 
-  // Inject if within recency or limit not exceeded: important
-  const important = all.filter(m => m.weight === 'important').slice(-8);
+  if (promptMemLoad === 0) return core;
 
-  // Keyword-triggered: normal memories
-  let keywordMatched = [];
-  if (userText && promptMemLoad > 0) {
+  // important: up to N most recent
+  const allImportant = all.filter(m => m.weight === 'important');
+  const importantBase = allImportant.slice(-promptMemLoad);
+
+  // Keyword matching: applies to both important (overflow) and normal
+  let keywordExtra = [];
+  if (userText) {
     const q = normalizeZh(userText.toLowerCase());
-    keywordMatched = all.filter(m => {
-      if (m.weight === 'faded' || m.weight === 'core' || m.weight === 'important') return false;
-      return (m.tags||[]).some(t => normalizeZh(t).includes(q)) ||
-             normalizeZh(m.summary||'').includes(q);
-    }).slice(0, 3);
+    const baseIds = new Set([...core, ...importantBase].map(m => m.id));
+
+    // important records that didn't make the base cut but keyword-matched
+    const importantOverflow = allImportant
+      .filter(m => !baseIds.has(m.id))
+      .filter(m => (m.tags||[]).some(t => normalizeZh(t).includes(q)) || normalizeZh(m.summary||'').includes(q));
+
+    // normal records that keyword-matched
+    const normalMatched = all
+      .filter(m => m.weight === 'normal')
+      .filter(m => (m.tags||[]).some(t => normalizeZh(t).includes(q)) || normalizeZh(m.summary||'').includes(q));
+
+    keywordExtra = [...importantOverflow, ...normalMatched].slice(0, 5);
   }
 
-  // Combine, deduplicate
-  const combined = [...core, ...important, ...keywordMatched];
+  // Combine: core (unlimited) + important base + keyword extras, deduplicated
+  const combined = [...core, ...importantBase, ...keywordExtra];
   const seen = new Set();
-  const unique = combined.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
-
-  // Respect max load (0 = no limit for core/important, just skip normal)
-  if (promptMemLoad === 0) return core; // core always
-  return unique.slice(0, Math.max(promptMemLoad, core.length));
+  return combined.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
 }
 
 function exportData(type) {
