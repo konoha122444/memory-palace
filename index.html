@@ -2297,7 +2297,10 @@ function renderConversations() {
       <span class="conv-source">${conv.source || 'claude'}</span>
       <div class="conv-info">
         <div class="conv-title">${escHtml(conv.title)}</div>
-        <div class="conv-date">${conv.date||''}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+          <span class="conv-date">${conv.date||''}</span>
+          ${(conv.messages?.length) ? `<span style="font-size:0.68rem;color:var(--text-muted);font-family:'DM Mono',monospace">${conv.messages.length} 則</span>` : ''}
+        </div>
       </div>
       ${conv.bookmarked ? '<span class="conv-bookmark">★</span>' : ''}
     </div>
