@@ -2813,7 +2813,7 @@ function parseClaudeConv(data) {
     // Handle various content formats
     const rawContent = m.content ?? m.text ?? '';
     if (typeof rawContent === 'string') {
-      // Check if it's a string with <antml_thinking> tags mixed in
+      // Check if string has antml_thinking tags mixed in
       const thinkMatch = rawContent.match(/<antml_thinking>([\s\S]*?)<\/antml_thinking>/g);
       if (thinkMatch) {
         thinking = thinkMatch.map(t => t.replace(/<\/?antml_thinking>/g, '')).join('\n').trim();
@@ -2827,8 +2827,7 @@ function parseClaudeConv(data) {
         if (block.type === 'thinking') {
           thinking += (block.thinking || block.text || '') + '\n';
         } else if (block.type === 'text') {
-          text += (block.text || '') + '
-';
+          text += (block.text || '') + '\n';
         } else if (block.type === 'tool_use' || block.type === 'tool_result') {
           // skip tool blocks
         } else if (typeof block === 'string') {
@@ -3429,7 +3428,7 @@ function buildSystemPrompt(memories) {
       }).join('\n');
   }
 
-  // Inject today's and upcoming calendar notes
+  // Inject todays and upcoming calendar notes
   let calSection = '';
   if (appData.calendar?.events) {
     const today = new Date().toISOString().split('T')[0];
@@ -3465,7 +3464,7 @@ async function getMemoriesForPrompt(userText) {
     const q = normalizeZh(userText.toLowerCase());
     const baseIds = new Set([...core, ...importantBase].map(m => m.id));
 
-    // important records that didn't make the base cut but keyword-matched
+    // important records that did not make the base cut but keyword-matched
     const importantOverflow = allImportant
       .filter(m => !baseIds.has(m.id))
       .filter(m => (m.tags||[]).some(t => normalizeZh(t).includes(q)) || normalizeZh(m.summary||'').includes(q));
