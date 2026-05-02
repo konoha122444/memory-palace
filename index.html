@@ -1258,6 +1258,8 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
       <div class="cal-grid" id="cal-grid"></div>
       <div class="cal-side" id="cal-side" style="display:none">
         <div class="cal-side-title" id="cal-side-date"></div>
+        <div id="cal-conv-refs" style="display:none;margin-bottom:16px"></div>
+        <div style="font-size:0.7rem;letter-spacing:0.12em;color:var(--text-muted);margin-bottom:8px">備注</div>
         <textarea class="cal-note-area" id="cal-note-input" placeholder="在這一天留下記錄..."></textarea>
         <div style="display:flex;justify-content:flex-end;margin-top:10px">
           <button class="btn btn-accent" onclick="saveCalNote()">儲存備注</button>
@@ -2760,15 +2762,48 @@ function renderCalendar() {
 
   document.getElementById('cal-grid').innerHTML = html;
 
-  if (calState.selectedDate) {
-    const dateStr = calState.selectedDate;
-    const ev = events[dateStr] || {};
-    const side = document.getElementById('cal-side');
-    const [sy, sm, sd] = dateStr.split('-');
-    document.getElementById('cal-side-date').textContent = sy + '年' + parseInt(sm) + '月' + parseInt(sd) + '日';
-    document.getElementById('cal-note-input').value = ev.notes || '';
-    side.style.display = 'block';
+  if (calState.selectedDate) renderCalendarSide();
+}
+
+function renderCalendarSide() {
+  const dateStr = calState.selectedDate;
+  if (!dateStr) return;
+  const events = appData.calendar?.events || {};
+  const ev = events[dateStr] || {};
+  const [sy, sm, sd] = dateStr.split('-');
+  document.getElementById('cal-side-date').textContent = sy + '年' + parseInt(sm) + '月' + parseInt(sd) + '日';
+  document.getElementById('cal-note-input').value = ev.notes || '';
+
+  // Render conv refs
+  const refsEl = document.getElementById('cal-conv-refs');
+  const refs = ev.convRefs || [];
+  if (refsEl) {
+    if (refs.length) {
+      refsEl.style.display = 'block';
+      refsEl.innerHTML = '<div style="font-size:0.7rem;letter-spacing:0.12em;color:var(--accent);margin-bottom:8px">對話記錄</div>' +
+        refs.map(r => `
+          <div onclick="gotoConvFromCal('${r.id}')" style="
+            display:flex;align-items:center;gap:10px;
+            padding:9px 12px;margin-bottom:6px;
+            background:var(--surface-2);border:1px solid var(--border);
+            border-radius:8px;cursor:pointer;transition:border-color 0.18s;
+          " onmouseover="this.style.borderColor='var(--accent-dim)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="color:var(--text-muted);font-size:0.85rem">💬</span>
+            <span style="font-size:0.85rem;color:var(--text)">${escHtml(r.title)}</span>
+            <span style="margin-left:auto;font-size:0.72rem;color:var(--text-muted)">→</span>
+          </div>`).join('');
+    } else {
+      refsEl.style.display = 'none';
+    }
   }
+  document.getElementById('cal-side').style.display = 'block';
+}
+
+function gotoConvFromCal(convId) {
+  switchTab('conversations');
+  currentConvTab = 'all';
+  renderConversations();
+  setTimeout(() => openConv(convId, 'all'), 100);
 }
 
 function changeMonth(dir) {
@@ -2789,10 +2824,10 @@ async function saveCalNote() {
   if (!calState.selectedDate) return;
   const note = document.getElementById('cal-note-input').value.trim();
   if (!appData.calendar.events) appData.calendar.events = {};
-  if (!appData.calendar.events[calState.selectedDate]) appData.calendar.events[calState.selectedDate] = {};
+  if (!appData.calendar.events[calState.selectedDate]) appData.calendar.events[calState.selectedDate] = { convRefs: [] };
   appData.calendar.events[calState.selectedDate].notes = note;
   await writeJsonFile(fileIds.calendar, appData.calendar);
-  renderCalendar();
+  renderCalendarSide();
   showToast('已儲存備注');
 }
 
@@ -3213,7 +3248,21 @@ function buildSystemPrompt(memories) {
       }).join('\n');
   }
 
-  return `【關於凝凝】\n${profile}\n\n【Ian 的身份與準則】\n${instructions}\n\n【對話風格】\n${style}${anchorSection}${memSection}\n\n【其他指令】\n${extra}`;
+  // Inject today's and upcoming calendar notes
+  let calSection = '';
+  if (appData.calendar?.events) {
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = [];
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() + i);
+      const ds = d.toISOString().split('T')[0];
+      const ev = appData.calendar.events[ds];
+      if (ev?.notes) upcoming.push(`${ds}：${ev.notes}`);
+    }
+    if (upcoming.length) calSection = '\n\n【行事曆備注（近7天）】\n' + upcoming.join('\n');
+  }
+
+  return `【關於凝凝】\n${profile}\n\n【Ian 的身份與準則】\n${instructions}\n\n【對話風格】\n${style}${anchorSection}${memSection}${calSection}\n\n【其他指令】\n${extra}`;
 }
 
 async function getMemoriesForPrompt(userText) {
