@@ -2579,19 +2579,17 @@ function renderChatMessages(conv) {
       </div>`;
     }
     const msgIdx = msgs.indexOf(m);
-    html += `<div class="bubble-wrap ${isUser?'human':'assistant'}">
-      <div class="bubble ${isUser?'human':'assistant'}">${escHtml(m.content)}</div>
-      <div class="bubble-meta" style="display:flex;align-items:center;gap:6px">
-        <span>${isUser ? getUserName() : getAiName()}</span>
-        <span class="bubble-actions">
-          <button class="bubble-act-btn" onclick="copyBubble(${msgIdx})" title="複製">⎘</button>
-          ${isUser
-            ? `<button class="bubble-act-btn" onclick="editBubble(${msgIdx})" title="編輯">✎</button>`
-            : `<button class="bubble-act-btn" onclick="retryBubble(${msgIdx})" title="重試">↺</button>`
-          }
-        </span>
-      </div>
-    </div>`;
+    const actionBtn = isUser
+      ? '<button class="bubble-act-btn" onclick="editBubble('+msgIdx+')" title="編輯">✎</button>'
+      : '<button class="bubble-act-btn" onclick="retryBubble('+msgIdx+')" title="重試">↺</button>';
+    html += '<div class="bubble-wrap ' + (isUser?'human':'assistant') + '">'
+      + '<div class="bubble ' + (isUser?'human':'assistant') + '">' + escHtml(m.content) + '</div>'
+      + '<div class="bubble-meta" style="display:flex;align-items:center;gap:6px">'
+      + '<span>' + (isUser ? getUserName() : getAiName()) + '</span>'
+      + '<span class="bubble-actions">'
+      + '<button class="bubble-act-btn" onclick="copyBubble('+msgIdx+')" title="複製">⎘</button>'
+      + actionBtn
+      + '</span></div></div>';
     return html;
   }).join('');
 }
@@ -2676,14 +2674,16 @@ Ian：${assistantMsg}
 只回傳JSON，不加任何其他文字。`;
 
   try {
-    const res = await fetch(`${geminiEndpoint(subModel)}?key=${apiKey}`, {
+    const res = await fetch(geminiEndpoint(subModel) + '?key=' + apiKey, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ contents:[{ role:'user', parts:[{text: prompt}] }] })
     });
     if (!res.ok) return;
     const data = await res.json();
     const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/```json|```/g,'').trim();
+    if (!raw) return;
     const result = JSON.parse(raw);
+    trackUsage(userMsg.length + assistantMsg.length, subModel);
     if (result.worth_saving) showMemoryExtractToast(result);
   } catch(e) { /* silent fail */ }
 }
