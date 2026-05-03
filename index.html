@@ -2589,6 +2589,7 @@ function renderChatMessages(conv) {
       + '<span class="bubble-actions">'
       + '<button class="bubble-act-btn" onclick="copyBubble('+msgIdx+')" title="複製">⎘</button>'
       + actionBtn
+      + '<button class="bubble-act-btn" onclick="deleteBubble('+msgIdx+')" title="刪除" style="color:var(--rose)">✕</button>'
       + '</span></div></div>';
     return html;
   }).join('');
@@ -2609,6 +2610,16 @@ function showSystemMessage(msg) {
   scrollChatToBottom();
 }
 
+function deleteBubble(idx) {
+  const conv = (appData.conversations?.conversations||[]).find(c=>c.id===currentConvId);
+  if (!conv) return;
+  if (!confirm('確定要刪除這條訊息嗎？')) return;
+  conv.messages.splice(idx, 1);
+  writeJsonFile(fileIds.conversations, appData.conversations);
+  renderChatMessages(conv);
+  showToast('已刪除');
+}
+
 function copyBubble(idx) {
   const conv = (appData.conversations?.conversations||[]).find(c=>c.id===currentConvId);
   if (!conv) return;
@@ -2623,13 +2634,32 @@ function editBubble(idx) {
   const m = conv.messages[idx];
   if (!m || m.role !== 'user') return;
   const newText = prompt('編輯訊息：', m.content);
-  if (newText === null) return;
+  if (newText === null || newText.trim() === m.content) return;
+
+  // Save branch: keep original messages as a branch
+  if (!conv.branches) conv.branches = [];
+  conv.branches.push({
+    branchedAt: idx,
+    originalContent: m.content,
+    messages: conv.messages.slice(0, idx + 1).map(x => Object.assign({}, x)),
+    date: new Date().toISOString()
+  });
+
+  // Apply edit and truncate
   m.content = newText.trim();
-  // Truncate messages after this point
   conv.messages = conv.messages.slice(0, idx + 1);
   writeJsonFile(fileIds.conversations, appData.conversations);
   renderChatMessages(conv);
-  showToast('已編輯，可重新發送');
+
+  // Auto re-send
+  if (confirm('編輯完成，要重新發送嗎？')) {
+    conv.messages.pop(); // sendChatMessage will re-add
+    const inp = document.getElementById('chat-input');
+    const prev = inp.value;
+    inp.value = newText.trim();
+    sendChatMessage();
+    inp.value = prev;
+  }
 }
 
 async function retryBubble(idx) {
@@ -2683,7 +2713,16 @@ Ian：${assistantMsg}
     const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/```json|```/g,'').trim();
     if (!raw) return;
     const result = JSON.parse(raw);
-    trackUsage(userMsg.length + assistantMsg.length, subModel);
+    const subTokens = userMsg.length + assistantMsg.length;
+    // Track sub model usage (may be different provider)
+    const subCount = parseInt(localStorage.getItem('mp-usage-m-' + subModel) || '0') + 1;
+    const subTok = parseInt(localStorage.getItem('mp-usage-mt-' + subModel) || '0') + subTokens;
+    localStorage.setItem('mp-usage-m-' + subModel, subCount);
+    localStorage.setItem('mp-usage-mt-' + subModel, subTok);
+    // Also update global
+    const gc = parseInt(localStorage.getItem('mp-usage-count') || '0') + 1;
+    localStorage.setItem('mp-usage-count', gc);
+    loadUsage();
     if (result.worth_saving) showMemoryExtractToast(result);
   } catch(e) { /* silent fail */ }
 }
@@ -3282,41 +3321,42 @@ async function testApiConnection() {
   resultEl.style.display = 'block';
   resultEl.style.color = 'var(--text-muted)';
   resultEl.textContent = '測試中…';
-
-  if (!apiKey) {
-    resultEl.style.color = 'var(--rose)';
-    resultEl.textContent = '✕ 請先填入 API Key';
-    return;
-  }
+  if (!apiKey) { resultEl.style.color='var(--rose)'; resultEl.textContent='✕ 請先填入 API Key'; return; }
 
   try {
     if (provider === 'gemini') {
-      const activeModel = getActiveModel('main');
-      const model = activeModel.model || 'gemini-2.5-flash';
-      const res = await fetch(
-        `${geminiEndpoint(model)}?key=${apiKey}`,
-        { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ contents:[{ role:'user', parts:[{text:'hi'}] }] })
-        }
-      );
+      const model = getActiveModel('main').model || 'gemini-2.5-flash';
+      const res = await fetch(geminiEndpoint(model) + '?key=' + apiKey, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ contents:[{role:'user',parts:[{text:'hi'}]}] })
+      });
+      const data = await res.json();
       if (res.ok) {
-        resultEl.style.color = 'var(--sage, #7E9E8A)';
-        resultEl.textContent = '✓ 連接成功！模型：' + model;
+        resultEl.style.color = '#7E9E8A';
+        resultEl.textContent = '✓ Gemini 連接成功：' + model;
       } else {
-        const err = await res.json();
-        const msg = err.error?.message || String(res.status);
+        const msg = data.error?.message || String(res.status);
         resultEl.style.color = 'var(--rose)';
-        if (msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-          resultEl.textContent = '⚠️ 此模型免費額度已用完，請換用其他模型或等明天重置。建議改試 Gemini 2.5 Flash。';
-        } else if (msg.includes('API_KEY_INVALID') || msg.includes('invalid')) {
-          resultEl.textContent = '✕ API Key 無效，請確認是否複製完整。';
-        } else {
-          resultEl.textContent = '✕ 錯誤：' + msg.slice(0, 120);
-        }
+        resultEl.textContent = msg.includes('quota') ? '⚠️ 額度已用完，請換模型' : '✕ ' + msg.slice(0,100);
+      }
+    } else if (provider === 'openai') {
+      const model = getActiveModel('main').model || 'gpt-4o-mini';
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer ' + apiKey},
+        body: JSON.stringify({model, messages:[{role:'user',content:'hi'}], max_tokens:5})
+      });
+      const data = await res.json();
+      if (res.ok) {
+        resultEl.style.color = '#7E9E8A';
+        resultEl.textContent = '✓ OpenAI 連接成功：' + model;
+      } else {
+        resultEl.style.color = 'var(--rose)';
+        resultEl.textContent = '✕ ' + (data.error?.message || String(res.status)).slice(0,100);
       }
     } else {
       resultEl.style.color = 'var(--text-muted)';
-      resultEl.textContent = '目前僅支援 Gemini 的連接測試';
+      resultEl.textContent = '目前支援 Gemini 和 OpenAI 的連接測試';
     }
   } catch(e) {
     resultEl.style.color = 'var(--rose)';
@@ -3343,16 +3383,21 @@ function loadUsage() {
   const models = PROVIDER_MODELS[provider] || [];
   const perModelEl = document.getElementById('usage-per-model');
   if (perModelEl) {
-    perModelEl.innerHTML = models.map(m => {
+    // Scan all providers for any model with usage
+    const allModels = [];
+    Object.values(PROVIDER_MODELS).forEach(list => list.forEach(m => {
       const mc = parseInt(localStorage.getItem('mp-usage-m-' + m.id) || '0');
       const mt = parseInt(localStorage.getItem('mp-usage-mt-' + m.id) || '0');
-      const roles = modelRoles[m.id] || new Set();
-      const roleStr = roles.has('main') ? '🍓' : roles.has('sub') ? '🍊' : '';
-      return mc > 0 ? `<div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:3px 0;border-bottom:1px solid var(--border-soft)">
-        <span style="color:var(--text-soft)">${roleStr} ${m.name}</span>
-        <span style="font-family:'DM Mono',monospace;color:var(--accent)">${mc}次 · ${mt.toLocaleString()}t</span>
-      </div>` : '';
-    }).join('');
+      if (mc > 0) {
+        const roles = modelRoles[m.id] || new Set();
+        const roleStr = roles.has('main') ? '🍓 ' : roles.has('sub') ? '🍊 ' : '';
+        allModels.push('<div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:3px 0;border-bottom:1px solid var(--border-soft)">'
+          + '<span style="color:var(--text-soft)">' + roleStr + m.name + '</span>'
+          + '<span style="font-family:'DM Mono',monospace;color:var(--accent)">' + mc + '次 · ' + mt.toLocaleString() + 't</span>'
+          + '</div>');
+      }
+    }));
+    perModelEl.innerHTML = allModels.join('') || '<div style="font-size:0.75rem;color:var(--text-muted)">尚無使用記錄</div>';
   }
 
   if (budget > 0) {
