@@ -2493,7 +2493,7 @@ async function sendChatMessage() {
       }));
       const memories = await getMemoriesForPrompt(text);
       const sysPrompt = buildSystemPrompt(memories);
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(PROXY_URL + '?target=https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
         body: JSON.stringify({
@@ -2510,12 +2510,27 @@ async function sendChatMessage() {
       replyText = data.choices?.[0]?.message?.content || '';
       trackUsage(text.length + replyText.length, model);
     } else if (provider === 'anthropic') {
-      showSystemMessage('Anthropic API 即時對話功能即將推出');
-      conv.messages.pop();
-      renderChatMessages(conv);
-      document.getElementById('chat-typing').classList.remove('visible');
-      document.getElementById('chat-send-btn').disabled = false;
-      return;
+      const model = getActiveModel('main').model || 'claude-sonnet-4-5-20251022';
+      const memories = await getMemoriesForPrompt(text);
+      const sysPrompt = buildSystemPrompt(memories);
+      const res = await fetch(PROXY_URL + '?target=https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 1024,
+          system: sysPrompt,
+          messages: [...history, { role: 'user', content: text }]
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || String(res.status));
+      replyText = data.content?.[0]?.text || '';
+      trackUsage(text.length + replyText.length, model);
     } else {
       showSystemMessage('目前不支援此服務商的即時對話');
       conv.messages.pop();
@@ -3205,6 +3220,8 @@ function setFontSize(size) {
 }
 
 // ── API SETTINGS ─────────────────────────────────────────
+const PROXY_URL = 'https://memory-palace-proxy.konoha122444.workers.dev';
+
 const PROVIDER_MODELS = {
   gemini: [
     { id:'gemini-2.5-flash',      name:'Gemini 2.5 Flash',      desc:'推薦・思考・免費額度' },
@@ -3345,7 +3362,7 @@ async function testApiConnection() {
       }
     } else if (provider === 'openai') {
       const model = getActiveModel('main').model || 'gpt-4o-mini';
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(PROXY_URL + '?target=https://api.openai.com/v1/chat/completions', {
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer ' + cleanKey},
         body: JSON.stringify({model, messages:[{role:'user',content:'hi'}], max_tokens:5})
@@ -3358,9 +3375,28 @@ async function testApiConnection() {
         resultEl.style.color = 'var(--rose)';
         resultEl.textContent = '✕ ' + (data.error?.message || String(res.status)).slice(0,100);
       }
+    } else if (provider === 'anthropic') {
+      const model = getActiveModel('main').model || 'claude-haiku-4-5-20251001';
+      const res = await fetch(PROXY_URL + '?target=https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': cleanKey,
+          'anthropic-version':'2023-06-01'
+        },
+        body: JSON.stringify({ model, max_tokens:5, messages:[{role:'user',content:'hi'}] })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        resultEl.style.color = '#7E9E8A';
+        resultEl.textContent = '✓ Anthropic 連接成功：' + model;
+      } else {
+        resultEl.style.color = 'var(--rose)';
+        resultEl.textContent = '✕ ' + (data.error?.message || String(res.status)).slice(0,100);
+      }
     } else {
       resultEl.style.color = 'var(--text-muted)';
-      resultEl.textContent = '目前支援 Gemini 和 OpenAI 的連接測試';
+      resultEl.textContent = '目前支援 Gemini、OpenAI 和 Anthropic 的連接測試';
     }
   } catch(e) {
     resultEl.style.color = 'var(--rose)';
