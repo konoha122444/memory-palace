@@ -629,6 +629,15 @@ body {
   margin-top: 4px; padding: 0 4px;
   display: flex; align-items: center; gap: 6px;
 }
+.bubble-actions { display:none; gap:2px; }
+.bubble-wrap:hover .bubble-actions { display:flex; }
+.bubble-act-btn {
+  background:none;border:none;
+  color:var(--text-muted);cursor:pointer;
+  font-size:0.8rem;padding:1px 4px;border-radius:4px;
+  transition:color 0.15s,background 0.15s;line-height:1;
+}
+.bubble-act-btn:hover { color:var(--text);background:var(--surface-2); }
 
 /* ── CALENDAR TAB ───────────────────────────────────── */
 .cal-header {
@@ -1474,6 +1483,7 @@ hr { border: none; border-top: 1px solid var(--border-soft); margin: 20px 0; }
             <div style="background:var(--surface-3);border-radius:6px;height:6px;overflow:hidden;margin-bottom:10px">
               <div id="usage-bar" style="height:100%;background:var(--accent);border-radius:6px;width:0%;transition:width 0.4s ease"></div>
             </div>
+            <div id="usage-per-model" style="margin-bottom:10px"></div>
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span style="font-size:0.72rem;color:var(--text-muted)" id="usage-budget-label">預算上限：未設定</span>
               <button class="btn btn-ghost" style="font-size:0.72rem;padding:4px 8px" onclick="resetUsage()">重置</button>
@@ -2463,10 +2473,55 @@ async function sendChatMessage() {
         }
       );
       const data = await res.json();
-      replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '（無回應）';
-      trackUsage(text.length + replyText.length);
+      replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!replyText) {
+        const errMsg = data.error?.message || data.candidates?.[0]?.finishReason || '未知錯誤';
+        conv.messages.pop();
+        renderChatMessages(conv);
+        showSystemMessage('發送失敗：' + (errMsg.includes('quota') ? '模型額度已用完' : errMsg.slice(0,80)));
+        document.getElementById('chat-typing').classList.remove('visible');
+        document.getElementById('chat-send-btn').disabled = false;
+        return;
+      }
+      trackUsage(text.length + replyText.length, model);
+    } else if (provider === 'openai') {
+      const model = getActiveModel('main').model || 'gpt-4o-mini';
+      const history = conv.messages.slice(0,-1).map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+      const memories = await getMemoriesForPrompt(text);
+      const sysPrompt = buildSystemPrompt(memories);
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: sysPrompt },
+            ...history,
+            { role: 'user', content: text }
+          ]
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || res.status);
+      replyText = data.choices?.[0]?.message?.content || '';
+      trackUsage(text.length + replyText.length, model);
+    } else if (provider === 'anthropic') {
+      showSystemMessage('Anthropic API 即時對話功能即將推出');
+      conv.messages.pop();
+      renderChatMessages(conv);
+      document.getElementById('chat-typing').classList.remove('visible');
+      document.getElementById('chat-send-btn').disabled = false;
+      return;
     } else {
-      replyText = '目前僅支援 Gemini API 的即時對話';
+      showSystemMessage('目前不支援此服務商的即時對話');
+      conv.messages.pop();
+      renderChatMessages(conv);
+      document.getElementById('chat-typing').classList.remove('visible');
+      document.getElementById('chat-send-btn').disabled = false;
+      return;
     }
 
     conv.messages.push({ role: 'assistant', content: replyText });
@@ -2477,8 +2532,12 @@ async function sendChatMessage() {
     // Sub-model: extract memory in background
     extractMemoryWithSubModel(text, replyText);
   } catch(e) {
-    showToast('API 錯誤：' + e.message);
-    conv.messages.pop(); // remove failed user msg
+    // Remove failed user message and show system error
+    conv.messages.pop();
+    renderChatMessages(conv);
+    showSystemMessage('發送失敗：' + (e.message.includes('quota') || e.message.includes('RESOURCE_EXHAUSTED')
+      ? '模型額度已用完，請在設定切換模型或等明天重置'
+      : e.message.slice(0, 80)));
   } finally {
     document.getElementById('chat-typing').classList.remove('visible');
     document.getElementById('chat-send-btn').disabled = false;
@@ -2530,6 +2589,56 @@ function renderChatMessages(conv) {
 function scrollChatToBottom() {
   const el = document.getElementById('chat-messages');
   setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
+}
+
+function showSystemMessage(msg) {
+  const el = document.getElementById('chat-messages');
+  if (!el) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'text-align:center;padding:8px 16px;margin:8px 0;font-size:0.75rem;color:var(--rose);background:rgba(196,126,126,0.08);border:1px solid rgba(196,126,126,0.2);border-radius:20px;letter-spacing:0.06em;';
+  div.textContent = '⚠ ' + msg;
+  el.appendChild(div);
+  scrollChatToBottom();
+}
+
+function copyBubble(idx) {
+  const conv = (appData.conversations?.conversations||[]).find(c=>c.id===currentConvId);
+  if (!conv) return;
+  const m = conv.messages[idx];
+  if (!m) return;
+  navigator.clipboard.writeText(m.content).then(() => showToast('已複製'));
+}
+
+function editBubble(idx) {
+  const conv = (appData.conversations?.conversations||[]).find(c=>c.id===currentConvId);
+  if (!conv) return;
+  const m = conv.messages[idx];
+  if (!m || m.role !== 'user') return;
+  const newText = prompt('編輯訊息：', m.content);
+  if (newText === null) return;
+  m.content = newText.trim();
+  // Truncate messages after this point
+  conv.messages = conv.messages.slice(0, idx + 1);
+  writeJsonFile(fileIds.conversations, appData.conversations);
+  renderChatMessages(conv);
+  showToast('已編輯，可重新發送');
+}
+
+async function retryBubble(idx) {
+  const conv = (appData.conversations?.conversations||[]).find(c=>c.id===currentConvId);
+  if (!conv) return;
+  // Remove this assistant message and re-send the previous user message
+  const userMsg = conv.messages[idx - 1];
+  if (!userMsg || userMsg.role !== 'user') return;
+  conv.messages = conv.messages.slice(0, idx);
+  renderChatMessages(conv);
+  // Re-trigger send
+  const fakeInput = document.getElementById('chat-input');
+  const prev = fakeInput.value;
+  fakeInput.value = userMsg.content;
+  conv.messages.pop(); // sendChatMessage will re-add it
+  await sendChatMessage();
+  fakeInput.value = prev;
 }
 
 async function extractMemoryWithSubModel(userMsg, assistantMsg) {
@@ -3060,10 +3169,12 @@ const PROVIDER_MODELS = {
     { id:'claude-haiku-4-5-20251001',  name:'Claude Haiku 4.5',  desc:'輕量快速・需付費' },
   ],
   openai: [
-    { id:'gpt-4.1-mini', name:'GPT-4.1 Mini', desc:'最新輕量・低成本' },
-    { id:'gpt-4.1',      name:'GPT-4.1',      desc:'最新旗艦' },
-    { id:'gpt-4o-mini',  name:'GPT-4o Mini',  desc:'穩定輕量' },
-    { id:'gpt-4o',       name:'GPT-4o',       desc:'穩定旗艦' },
+    { id:'gpt-4o-mini',       name:'GPT-4o Mini',       desc:'Tier1・輕量快速・推薦' },
+    { id:'gpt-4o',            name:'GPT-4o',             desc:'Tier1・均衡效能' },
+    { id:'gpt-4.1-mini',      name:'GPT-4.1 Mini',      desc:'Tier1・最新輕量' },
+    { id:'gpt-4.1-nano',      name:'GPT-4.1 Nano',      desc:'Tier1・最省成本' },
+    { id:'gpt-4.1',           name:'GPT-4.1',            desc:'Tier2+・最新旗艦' },
+    { id:'o4-mini',           name:'o4 Mini',            desc:'Tier1・推理模型' },
   ]
 };
 
@@ -3123,14 +3234,22 @@ function renderModelPicker(provider) {
 function toggleModelRole(modelId, role) {
   if (!modelRoles[modelId]) modelRoles[modelId] = new Set();
   const roles = modelRoles[modelId];
-  // main and sub are exclusive across models
-  if (role === 'main' || role === 'sub') {
-    Object.keys(modelRoles).forEach(id => {
-      if (modelRoles[id]) modelRoles[id].delete(role);
-    });
+
+  if (roles.has(role)) {
+    // Un-light: remove role
+    roles.delete(role);
+    if (role === 'sub') showToast('副模型已關閉，背景記憶提取不會運作');
+    if (role === 'main') showToast('主模型已取消，對話將無法發送');
+  } else {
+    // Light up: main/sub are exclusive across models
+    if (role === 'main' || role === 'sub') {
+      Object.keys(modelRoles).forEach(id => {
+        if (modelRoles[id]) modelRoles[id].delete(role);
+      });
+    }
+    roles.add(role);
   }
-  if (roles.has(role)) roles.delete(role);
-  else roles.add(role);
+
   // Save (convert Sets to arrays)
   const toSave = {};
   Object.keys(modelRoles).forEach(k => { toSave[k] = [...modelRoles[k]]; });
@@ -3199,11 +3318,32 @@ function loadUsage() {
   const tokens = parseInt(localStorage.getItem('mp-usage-tokens') || '0');
   const budget = parseInt(localStorage.getItem('mp-budget') || '0');
   const budgetOn = localStorage.getItem('mp-budget-on') === 'true';
+  const today = new Date().toISOString().split('T')[0];
+  const dayCount = parseInt(localStorage.getItem('mp-usage-day-' + today) || '0');
+  const dayTokens = parseInt(localStorage.getItem('mp-usage-daytoken-' + today) || '0');
 
   const set = (id, fn) => { const el = document.getElementById(id); if (el) fn(el); };
 
-  set('usage-count', el => el.textContent = count + ' 次');
-  set('usage-tokens', el => el.textContent = tokens.toLocaleString());
+  set('usage-count', el => el.textContent = count + ' 次（今日 ' + dayCount + ' 次）');
+  set('usage-tokens', el => el.textContent = tokens.toLocaleString() + '（今日 ' + dayTokens.toLocaleString() + '）');
+
+  // Per-model breakdown
+  const provider = localStorage.getItem('mp-provider') || 'gemini';
+  const models = PROVIDER_MODELS[provider] || [];
+  const perModelEl = document.getElementById('usage-per-model');
+  if (perModelEl) {
+    perModelEl.innerHTML = models.map(m => {
+      const mc = parseInt(localStorage.getItem('mp-usage-m-' + m.id) || '0');
+      const mt = parseInt(localStorage.getItem('mp-usage-mt-' + m.id) || '0');
+      const roles = modelRoles[m.id] || new Set();
+      const roleStr = roles.has('main') ? '🍓' : roles.has('sub') ? '🍊' : '';
+      return mc > 0 ? `<div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:3px 0;border-bottom:1px solid var(--border-soft)">
+        <span style="color:var(--text-soft)">${roleStr} ${m.name}</span>
+        <span style="font-family:'DM Mono',monospace;color:var(--accent)">${mc}次 · ${mt.toLocaleString()}t</span>
+      </div>` : '';
+    }).join('');
+  }
+
   if (budget > 0) {
     set('usage-budget-label', el => el.textContent = '預算上限：' + budget + ' 次');
     const pct = Math.min((count / budget) * 100, 100);
@@ -3216,11 +3356,29 @@ function loadUsage() {
   }
 }
 
-function trackUsage(estimatedTokens) {
+function trackUsage(estimatedTokens, modelId) {
+  // Global count
   const count = parseInt(localStorage.getItem('mp-usage-count') || '0') + 1;
   const tokens = parseInt(localStorage.getItem('mp-usage-tokens') || '0') + (estimatedTokens || 500);
   localStorage.setItem('mp-usage-count', count);
   localStorage.setItem('mp-usage-tokens', tokens);
+
+  // Daily count
+  const today = new Date().toISOString().split('T')[0];
+  const dayKey = 'mp-usage-day-' + today;
+  const dayCount = parseInt(localStorage.getItem(dayKey) || '0') + 1;
+  localStorage.setItem(dayKey, dayCount);
+  const dayTokenKey = 'mp-usage-daytoken-' + today;
+  const dayTokens = parseInt(localStorage.getItem(dayTokenKey) || '0') + (estimatedTokens || 500);
+  localStorage.setItem(dayTokenKey, dayTokens);
+
+  // Per-model count
+  if (modelId) {
+    const mCount = parseInt(localStorage.getItem('mp-usage-m-' + modelId) || '0') + 1;
+    const mTokens = parseInt(localStorage.getItem('mp-usage-mt-' + modelId) || '0') + (estimatedTokens || 500);
+    localStorage.setItem('mp-usage-m-' + modelId, mCount);
+    localStorage.setItem('mp-usage-mt-' + modelId, mTokens);
+  }
   loadUsage();
 }
 
