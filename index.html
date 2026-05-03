@@ -2578,9 +2578,19 @@ function renderChatMessages(conv) {
         </details>
       </div>`;
     }
+    const msgIdx = msgs.indexOf(m);
     html += `<div class="bubble-wrap ${isUser?'human':'assistant'}">
       <div class="bubble ${isUser?'human':'assistant'}">${escHtml(m.content)}</div>
-      <div class="bubble-meta">${isUser ? getUserName() : getAiName()}</div>
+      <div class="bubble-meta" style="display:flex;align-items:center;gap:6px">
+        <span>${isUser ? getUserName() : getAiName()}</span>
+        <span class="bubble-actions">
+          <button class="bubble-act-btn" onclick="copyBubble(${msgIdx})" title="複製">⎘</button>
+          ${isUser
+            ? `<button class="bubble-act-btn" onclick="editBubble(${msgIdx})" title="編輯">✎</button>`
+            : `<button class="bubble-act-btn" onclick="retryBubble(${msgIdx})" title="重試">↺</button>`
+          }
+        </span>
+      </div>
     </div>`;
     return html;
   }).join('');
@@ -3206,6 +3216,7 @@ function updateApiProviderUI() {
   document.getElementById('api-key-input').value = savedKey;
   document.getElementById('api-key-status').textContent = savedKey ? '✓ Key 已儲存' : '';
   renderModelPicker(provider);
+  loadUsage();
 }
 
 function renderModelPicker(provider) {
