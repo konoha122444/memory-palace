@@ -2437,7 +2437,8 @@ async function sendChatMessage() {
 
   // Get API config
   const provider = localStorage.getItem('mp-provider') || 'gemini';
-  const apiKey = localStorage.getItem('mp-apikey-' + provider);
+  const rawKey = localStorage.getItem('mp-apikey-' + provider) || '';
+  const apiKey = rawKey.replace(/[^\x20-\x7E]/g, '').trim();
   if (!apiKey) {
     showToast('請先在設定裡填入 API Key');
     return;
@@ -3322,6 +3323,9 @@ async function testApiConnection() {
   resultEl.style.color = 'var(--text-muted)';
   resultEl.textContent = '測試中…';
   if (!apiKey) { resultEl.style.color='var(--rose)'; resultEl.textContent='✕ 請先填入 API Key'; return; }
+  // Strip non-ASCII characters (can sneak in via copy-paste)
+  const cleanKey = apiKey.replace(/[^ -~]/g, '').trim();
+  if (!cleanKey) { resultEl.style.color='var(--rose)'; resultEl.textContent='✕ Key 包含無效字符，請重新貼上'; return; }
 
   try {
     if (provider === 'gemini') {
@@ -3343,7 +3347,7 @@ async function testApiConnection() {
       const model = getActiveModel('main').model || 'gpt-4o-mini';
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer ' + apiKey},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer ' + cleanKey},
         body: JSON.stringify({model, messages:[{role:'user',content:'hi'}], max_tokens:5})
       });
       const data = await res.json();
