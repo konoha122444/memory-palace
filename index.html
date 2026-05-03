@@ -3393,7 +3393,7 @@ function loadUsage() {
         const roleStr = roles.has('main') ? '🍓 ' : roles.has('sub') ? '🍊 ' : '';
         allModels.push('<div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:3px 0;border-bottom:1px solid var(--border-soft)">'
           + '<span style="color:var(--text-soft)">' + roleStr + m.name + '</span>'
-          + '<span style="font-family:'DM Mono',monospace;color:var(--accent)">' + mc + '次 · ' + mt.toLocaleString() + 't</span>'
+          + '<span style="font-family:monospace;color:var(--accent)">' + mc + '次 · ' + mt.toLocaleString() + 't</span>'
           + '</div>');
       }
     }));
