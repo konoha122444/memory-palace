@@ -3874,8 +3874,8 @@ function renderLorebook() {
       + '<div style="font-size:0.82rem;color:var(--text-muted);line-height:1.7;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + escHtml(e.content) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-shrink:0">'
-      + '<button class="btn btn-ghost" style="padding:4px 8px;font-size:0.75rem" onclick="editLorebookEntry(''+e.id+'')">編輯</button>'
-      + '<button class="btn btn-ghost" style="padding:4px 8px;font-size:0.75rem;color:var(--rose)" onclick="deleteLorebookEntry(''+e.id+'')">刪除</button>'
+      + '<button class="btn btn-ghost" style="padding:4px 8px;font-size:0.75rem" data-lbid="'+e.id+'" onclick="editLorebookEntry(this.dataset.lbid)">編輯</button>'
+      + '<button class="btn btn-ghost" style="padding:4px 8px;font-size:0.75rem;color:var(--rose)" data-lbid="'+e.id+'" onclick="deleteLorebookEntry(this.dataset.lbid)">刪除</button>'
       + '</div></div></div>';
   }).join('');
 }
