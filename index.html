@@ -2560,13 +2560,18 @@ async function sendChatMessage() {
       if (!res.ok) throw new Error(data.error?.message || res.status);
       replyText = data.choices?.[0]?.message?.content || '';
       // Accurate token estimate: system + history + user + reply, /2.5 chars per token
-      const inputText = systemPrompt + history.map(m=>m.content||'').join('') + text;
+      const inputText = sysPrompt + history.map(m=>m.content||'').join('') + text;
       const estimatedTokens = Math.round((inputText.length + replyText.length) / 2.5);
       trackUsage(estimatedTokens, model, Math.round(inputText.length/2.5), Math.round(replyText.length/2.5));
     } else if (provider === 'anthropic') {
       const model = getActiveModel('main').model || 'claude-sonnet-4-5-20251022';
+      if (driveSyncEnabled) await fetchFreshFromDrive();
       const memories = await getMemoriesForPrompt(text);
       const sysPrompt = buildSystemPrompt(memories) + getLorebookContext(text);
+      const history = conv.messages.slice(0,-1).map(m => ({
+        role: m.role,
+        content: m.content
+      }));
       const res = await fetch(PROXY_URL + '?target=https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -2576,8 +2581,8 @@ async function sendChatMessage() {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 1024,
-          system: antSysPrompt,
+          max_tokens: 4096,
+          system: sysPrompt,
           messages: [...history, { role: 'user', content: text }]
         })
       });
@@ -2585,7 +2590,7 @@ async function sendChatMessage() {
       if (!res.ok) throw new Error(data.error?.message || String(res.status));
       replyText = data.content?.[0]?.text || '';
       // Accurate token estimate: system + history + user + reply, /2.5 chars per token
-      const inputText = systemPrompt + history.map(m=>m.content||'').join('') + text;
+      const inputText = sysPrompt + history.map(m=>m.content||'').join('') + text;
       const estimatedTokens = Math.round((inputText.length + replyText.length) / 2.5);
       trackUsage(estimatedTokens, model, Math.round(inputText.length/2.5), Math.round(replyText.length/2.5));
     } else {
