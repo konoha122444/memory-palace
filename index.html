@@ -2503,10 +2503,9 @@ async function sendChatMessage() {
   try {
     let replyText = '';
     if (provider === 'gemini') {
-      const model = getActiveModel('main').model || 'gemini-1.5-flash';
-      // Auto-refresh from Drive if enabled
-  if (driveSyncEnabled) await fetchFreshFromDrive();
-  const memories = await getMemoriesForPrompt(text);
+      const model = getActiveModel('main').model || 'gemini-2.5-flash';
+      if (driveSyncEnabled) await fetchFreshFromDrive();
+      const memories = await getMemoriesForPrompt(text);
       const lorebookCtx = getLorebookContext(text);
       const systemPrompt = buildSystemPrompt(memories) + lorebookCtx;
       const history = conv.messages.slice(0,-1).map(m => ({
